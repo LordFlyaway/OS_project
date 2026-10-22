@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scheduler Lab · AI Task Scheduler</title>
+<style>
+:root{
+  --ink:#080c14; --panel:#0e1422; --panel-2:#131b2e; --raised:#18223a;
+  --line:#1e2942; --line-2:#2a3858;
+  --text:#e7ecf7; --muted:#8793b0; --faint:#56627f;
+  --amber:#ffb224; --amber-soft:rgba(255,178,36,.14); --amber-line:rgba(255,178,36,.45);
+  --good:#5fd6a0; --bad:#ff7a7a;
+  --font-display:Bahnschrift,"DIN Alternate","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --font-body:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-mono:"Cascadia Mono",Consolas,"SFMono-Regular",Menlo,monospace;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--ink);color:var(--text);font:14px/1.5 var(--font-body);
+  background-image:radial-gradient(1200px 500px at 70% -10%,rgba(255,178,36,.07),transparent 60%),
+                   radial-gradient(900px 500px at -10% 10%,rgba(80,120,255,.07),transparent 60%);
+  background-attachment:fixed;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  gap:16px;padding:12px 28px;background:rgba(8,12,20,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:30px;height:30px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line-2);
+  display:grid;grid-template-columns:repeat(4,1fr);align-items:end;gap:2px;padding:6px}
+.mark i{display:block;border-radius:1px;background:var(--amber)}
+.mark i:nth-child(1){height:45%;opacity:.5}.mark i:nth-child(2){height:100%}
+.mark i:nth-child(3){height:65%;opacity:.7}.mark i:nth-child(4){height:30%;opacity:.4}
+.brand b{font:600 17px var(--font-display);letter-spacing:.02em}
+.brand span{color:var(--muted);font-size:12px;display:block;margin-top:-2px}
+.tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px}
+.tab{border:0;background:transparent;color:var(--muted);padding:7px 18px;border-radius:999px;cursor:pointer;
+  font:500 13px var(--font-display);letter-spacing:.04em;transition:color .2s,background .2s}
+.tab:hover{color:var(--text)}
+.tab[aria-selected="true"]{background:var(--amber);color:#1a1200}
+
+/* ---------- layout ---------- */
+.shell{display:grid;grid-template-columns:288px minmax(0,1fr);gap:24px;padding:24px 28px 56px;max-width:1500px;margin:0 auto}
+.rail{position:sticky;top:78px;align-self:start;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.pad{padding:18px}
+.eyebrow{font:600 11px var(--font-display);letter-spacing:.16em;text-transform:uppercase;color:var(--amber)}
+.h2{font:600 22px/1.2 var(--font-display);margin:6px 0 4px;letter-spacing:.01em}
+.sub{color:var(--muted);margin:0}
+.label{font:500 11px var(--font-display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- controls ---------- */
+.ctl{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.ctl-row{display:flex;justify-content:space-between;align-items:baseline}
+.ctl output{font-family:var(--font-mono);color:var(--text);font-size:13px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:var(--line-2)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;border-radius:50%;
+  background:var(--amber);border:3px solid var(--ink);box-shadow:0 0 0 1px var(--amber-line)}
+input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:var(--line-2)}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--amber);border:3px solid var(--ink)}
+.seed{display:flex;gap:8px}
+.seed input{flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--line-2);border-radius:10px;padding:8px 10px;
+  font-family:var(--font-mono)}
+.btn{border:1px solid var(--line-2);background:var(--panel-2);color:var(--text);border-radius:10px;padding:8px 12px;cursor:pointer;
+  transition:background .15s,border-color .15s,transform .1s}
+.btn:hover{background:var(--raised);border-color:var(--faint)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#1a1200;font-weight:600}
+.btn.primary:hover{background:#ffc34f}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--muted);
+  border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;user-select:none;transition:all .15s}
+.chip[aria-pressed="true"]{color:var(--text);border-color:var(--faint);background:var(--raised)}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.chip[aria-pressed="true"] .dot{background:var(--c,var(--amber))}
+.hint{font-size:12px;color:var(--faint);line-height:1.5;margin:0}
+.hint kbd{font:11px var(--font-mono);background:var(--panel-2);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--muted)}
+
+/* ---------- main ---------- */
+.main{display:flex;flex-direction:column;gap:20px;min-width:0}
+.hero{padding:22px 22px 14px}
+.transport{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 6px}
+.play{width:42px;height:42px;border-radius:50%;border:0;background:var(--amber);color:#1a1200;display:grid;place-items:center;cursor:pointer;
+  box-shadow:0 0 0 6px var(--amber-soft);transition:transform .12s}
+.play:hover{transform:scale(1.05)}
+.play svg{width:16px;height:16px;fill:currentColor}
+.scrub{flex:1;min-width:180px}
+.clock{font:500 14px var(--font-mono);color:var(--text);min-width:122px;text-align:right}
+.clock small{color:var(--muted)}
+.speed{background:var(--panel-2);border:1px solid var(--line-2);border-radius:10px;padding:7px 10px}
+.source{margin:8px 0 0;font-size:12.5px;color:var(--amber);display:flex;align-items:center;gap:8px}
+.source::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px var(--amber-soft)}
+.live{margin:4px 0 0;font:12px var(--font-mono);color:var(--faint)}
+.tracing{display:none;align-items:center;gap:8px;border:1px solid var(--amber-line);background:var(--amber-soft);color:var(--amber);
+  border-radius:999px;padding:4px 6px 4px 12px;font-size:12px}
+.tracing.on{display:inline-flex}
+.tracing button{border:0;background:rgba(255,178,36,.2);color:var(--amber);border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1}
+.stage{position:relative;margin-top:6px;border-radius:12px;overflow:hidden;background:var(--ink);border:1px solid var(--line)}
+canvas{display:block;width:100%;cursor:crosshair;touch-action:none}
+.tip{position:absolute;pointer-events:none;z-index:5;background:#0b1120;border:1px solid var(--line-2);border-radius:10px;padding:9px 11px;
+  font-size:12px;line-height:1.5;min-width:170px;box-shadow:0 12px 30px rgba(0,0,0,.5);opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+.tip.on{opacity:1;transform:none}
+.tip b{font:600 13px var(--font-display);letter-spacing:.03em}
+.tip .row{display:flex;justify-content:space-between;gap:16px;color:var(--muted)}
+.tip .row span:last-child{color:var(--text);font-family:var(--font-mono)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;padding:0 2px}
+.legend button{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--muted);font:12px var(--font-mono);cursor:pointer;padding:2px 0}
+.legend button:hover,.legend button[aria-pressed="true"]{color:var(--text)}
+.legend i{width:10px;height:10px;border-radius:3px;display:block}
+
+.verdict{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:hidden}
+.stat{padding:16px 18px;border-right:1px solid var(--line);position:relative}
+.stat:last-child{border-right:0}
+.stat .v{font:600 30px/1.1 var(--font-display);margin:6px 0 2px;letter-spacing:.01em}
+.stat .n{font-size:12px;color:var(--muted)}
+.stat.ai{background:linear-gradient(180deg,var(--amber-soft),transparent)}
+.stat.ai .v{color:var(--amber)}
+.good{color:var(--good)}.bad{color:var(--bad)}
+
+.two{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px}
+.insp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 14px;flex-wrap:wrap}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper .btn{padding:6px 10px}
+.stepper span{font:12px var(--font-mono);color:var(--muted);min-width:96px;text-align:center}
+.cand{display:grid;grid-template-columns:44px minmax(40px,1fr) minmax(0,auto);gap:12px;align-items:center;padding:9px 10px;border-radius:10px;
+  border:1px solid transparent;transition:background .2s}
+.cand + .cand{margin-top:4px}
+.cand.win{background:var(--amber-soft);border-color:var(--amber-line)}
+.pid{display:inline-flex;align-items:center;gap:6px;font:600 13px var(--font-display);letter-spacing:.03em}
+.pid i{width:9px;height:9px;border-radius:3px;display:block}
+.bar{height:10px;border-radius:6px;background:var(--panel-2);overflow:hidden;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--faint);transition:width .35s cubic-bezier(.2,.8,.2,1)}
+.cand.win .bar i{background:var(--amber)}
+.formula{font:11.5px var(--font-mono);color:var(--muted);text-align:right;white-space:normal;max-width:230px}
+.formula b{color:var(--text);font-weight:600}
+.badge{font:600 10px var(--font-display);letter-spacing:.12em;color:var(--amber);margin-left:8px}
+.empty{color:var(--muted);padding:18px 4px}
+
+.mrow{display:grid;grid-template-columns:118px minmax(0,1fr) 74px;gap:12px;align-items:center;padding:7px 0}
+.mrow .nm{font:500 13px var(--font-display);letter-spacing:.02em}
+.mrow .nm.ai{color:var(--amber)}
+.mrow .track{height:14px;border-radius:7px;background:var(--panel-2);position:relative;overflow:hidden}
+.mrow .track i{position:absolute;inset:0 auto 0 0;border-radius:7px;background:#3a4a70;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.mrow.ai .track i{background:var(--amber)}
+.mrow .val{font:13px var(--font-mono);text-align:right}
+.mrow .best{font:600 9px var(--font-display);letter-spacing:.1em;color:var(--good);display:block;text-align:right;margin-top:-2px}
+.seg{display:inline-flex;background:var(--panel-2);border:1px solid var(--line-2);border-radius:999px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer;font-size:12px}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--text)}
+
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font:500 11px var(--font-display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr{cursor:pointer;transition:background .15s}
+tbody tr:hover{background:var(--panel-2)}
+tbody tr.sel{background:var(--amber-soft)}
+td.num,th.num{text-align:right;font-family:var(--font-mono)}
+.pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;border:1px solid var(--line-2);color:var(--muted)}
+.err{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.err i{display:block;height:5px;border-radius:3px;background:var(--faint)}
+.ok{color:var(--good)}.no{color:var(--bad)}
+
+/* ---------- results tab ---------- */
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.kpi{padding:16px 18px}
+.kpi .v{font:600 28px/1.1 var(--font-display);margin:6px 0 2px}
+.kpi .n{color:var(--muted);font-size:12px}
+.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.chart-t{font:600 15px var(--font-display);letter-spacing:.02em;margin:4px 0 2px}
+.chart-n{font-size:12px;color:var(--muted);margin:0 0 8px}
+section svg{display:block;width:100%;height:auto;max-width:620px;margin:0 auto}
+svg text{font-family:var(--font-mono);fill:var(--muted);font-size:10.5px}
+svg .axis{stroke:var(--line-2)}svg .grid{stroke:var(--line)}
+.note{color:var(--muted);font-size:12.5px;border-left:2px solid var(--amber);padding:2px 0 2px 12px;margin:0}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 22px;margin-top:6px}
+.fact{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:7px 0;font-size:13px}
+.fact span:first-child{color:var(--muted)}.fact span:last-child{font-family:var(--font-mono)}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#2a1114;border:1px solid #6b2a30;color:#ffc9c9;
+  padding:10px 16px;border-radius:12px;z-index:50;display:none;max-width:90vw}
+.toast.on{display:block}
+[hidden]{display:none!important}
+
+@media (max-width:1100px){.charts{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
+@media (max-width:760px){.cand{grid-template-columns:44px minmax(0,1fr)}.formula{grid-column:1/-1;text-align:left;max-width:none}}
+@media (max-width:980px){
+  .shell{grid-template-columns:1fr;padding:16px}
+  .rail{position:static}
+  .verdict,.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat:nth-child(2){border-right:0}
+  .stat:nth-child(-n+2){border-bottom:1px solid var(--line)}
+  .topbar{padding:10px 16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div><b>Scheduler Lab</b><span>AI Task Scheduler · BCSE303L</span></div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" id="tab-sim" aria-selected="true" aria-controls="view-sim">Simulator</button>
+    <button class="tab" role="tab" id="tab-res" aria-selected="false" aria-controls="view-res">Results</button>
+  </nav>
+</header>
+
+<!-- ============================ SIMULATOR ============================ -->
+<div class="shell" id="view-sim" role="tabpanel" aria-labelledby="tab-sim">
+  <aside class="rail">
+    <section class="card pad" aria-label="Batch settings">
+      <div class="eyebrow">Batch</div>
+      <div style="height:12px"></div>
+      <div class="ctl">
+        <div class="ctl-row"><label class="label" for="n">Processes</label><output id="n-o" class="mono">8</output></div>
+        <input type="range" id="n" min="4" max="30" value="8">
+      </div>
+      <div class="ctl">
+        <label class="label" for="seed">Seed</label>
+        <div class="seed">
+          <input type="number" id="seed" value="7" min="0" max="999999" inputmode="numeric">
+          <button class="btn" id="dice" title="Random batch" aria-label="Generate a random batch">Shuffle</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-row"><label class="label" for="quantum">Round Robin quantum</label><output id="quantum-o" class="mono">3 ms</output></div>
+        <input type="range" id="quantum" min="1" max="16" value="3">
+      </div>
+      <div class="ctl" style="margin-bottom:4px">
+        <div class="ctl-row"><label class="label" for="aging">AI aging factor α</label><output id="aging-o" class="mono">0.35</output></div>
+        <input type="range" id="aging" min="0" max="2" step="0.05" value="0.35">
+      </div>
+    </section>
+
+    <section class="card pad" aria-label="Lanes">
+      <div class="eyebrow">Lanes</div>
+      <div style="height:10px"></div>
+      <div class="chips" id="lane-chips"></div>
+      <div style="height:12px"></div>
+      <div class="chips"><button class="chip" id="arrivals-chip" aria-pressed="true"><span class="dot"></span>Show arrivals</button></div>
+    </section>
+
+    <p class="hint">Scroll on the chart to zoom, drag to pan, double-click to reset. Click a block to follow that process in every lane. <kbd>Space</kbd> plays or pauses, <kbd>←</kbd> <kbd>→</kbd> step through the AI's decisions.</p>
+  </aside>
+
+  <main class="main">
+    <section class="card hero" aria-labelledby="hero-t">
+      <div class="eyebrow">Live simulation</div>
+      <h1 class="h2" id="hero-t">Same processes, five ways to schedule them</h1>
+      <p class="sub">Press play. Every lane runs the identical batch under a different policy, so you can see who clears the queue first.</p>
+      <p class="source" id="source-note" hidden></p>
+      <p class="live" id="live-note"></p>
+
+      <div class="transport">
+        <button class="play" id="play" aria-label="Play"><svg viewBox="0 0 16 16" id="play-ico"><path d="M3 1.5v13l11-6.5z"/></svg></button>
+        <button class="btn" id="restart" aria-label="Restart">Restart</button>
+        <input class="scrub" type="range" id="scrub" min="0" max="100" step="0.1" value="0" aria-label="Playhead position">
+        <div class="clock" id="clock">0 <small>/ 0 ms</small></div>
+        <select class="speed" id="speed" aria-label="Playback speed">
+          <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option>
+        </select>
+        <span class="tracing" id="tracing"><span id="tracing-t"></span><button id="tracing-x" aria-label="Stop tracing">×</button></span>
+      </div>
+
+      <div class="stage" id="stage">
+        <canvas id="tl" role="img" aria-label="Gantt chart: five scheduling policies on the same batch"></canvas>
+        <div class="tip" id="tip"></div>
+      </div>
+      <div class="legend" id="legend" aria-label="Processes"></div>
+    </section>
+
+    <section class="card verdict" id="verdict" aria-label="Summary"></section>
+
+    <div class="two">
+      <section class="card pad" aria-labelledby="insp-t">
+        <div class="eyebrow">Decision inspector</div>
+        <h2 class="h2" id="insp-t">Why the AI picks what it picks</h2>
+        <p class="sub">Each time the CPU frees up, every waiting process is scored: <span class="mono">predicted burst + 0.5 × predicted priority − α × time waited</span>. The lowest score runs.</p>
+        <div class="insp-head">
+          <div class="label" id="insp-meta">—</div>
+          <div class="stepper">
+            <button class="btn" id="prev" aria-label="Previous decision">Prev</button>
+            <span id="step-o">—</span>
+            <button class="btn" id="next" aria-label="Next decision">Next</button>
+          </div>
+        </div>
+        <div id="cands"></div>
+      </section>
+
+      <section class="card pad" aria-labelledby="met-t">
+        <div class="eyebrow">Scoreboard</div>
+        <h2 class="h2" id="met-t">How each policy performed</h2>
+        <div style="margin:12px 0 10px"><div class="seg" id="metric-seg" role="group" aria-label="Metric">
+          <button data-m="avg_waiting" aria-pressed="true">Waiting</button>
+          <button data-m="avg_turnaround" aria-pressed="false">Turnaround</button>
+          <button data-m="avg_response" aria-pressed="false">Response</button>
+          <button data-m="context_switches" aria-pressed="false">Switches</button>
+        </div></div>
+        <div id="mbars"></div>
+        <p class="hint" id="mnote" style="margin-top:8px"></p>
+      </section>
+    </div>
+
+    <section class="card pad" aria-labelledby="proc-t">
+      <div class="eyebrow">The batch</div>
+      <h2 class="h2" id="proc-t">What the model predicted for each process</h2>
+      <p class="sub" style="margin-bottom:10px">The AI scheduler only ever sees the predicted columns. True values drive the simulation. Click a row to follow it.</p>
+      <div class="tablewrap"><table id="ptable"></table></div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== RESULTS ============================== -->
+<div class="shell" id="view-res" role="tabpanel" aria-labelledby="tab-res" hidden style="grid-template-columns:minmax(0,1fr)">
+  <main class="main" id="res-main"><div class="card pad empty">Loading results…</div></main>
+</div>
+
+<div class="toast" id="toast" role="alert"></div>
+
+<script>
+"use strict";
+/* ============================== constants ============================== */
+const ALGOS = [
+  {key:"fcfs", label:"FCFS", sub:"first come, first served"},
+  {key:"sjf", label:"SJF", sub:"oracle · knows true bursts"},
+  {key:"rr", label:"Round Robin", sub:"fixed time slices"},
+  {key:"priority", label:"Priority", sub:"oracle · knows true priority"},
+  {key:"ai", label:"AI Scheduler", sub:"Random Forest + aging", hl:true},
+];
+const METRICS = {
+  avg_waiting:{label:"Average waiting time", unit:" ms", note:"Time spent in the ready queue. Lower is better."},
+  avg_turnaround:{label:"Average turnaround time", unit:" ms", note:"Arrival to completion. Lower is better."},
+  avg_response:{label:"Average response time", unit:" ms", note:"Arrival to first time on the CPU. Round Robin wins this one by design."},
+  context_switches:{label:"Context switches", unit:"", note:"Each switch is overhead the CPU spends not running your code."},
+};
+const $ = s => document.querySelector(s);
+const fmt = (x, d=1) => (x==null||isNaN(x)) ? "—" : Number(x).toFixed(d);
+const pidColor = pid => `hsl(${Math.round((pid*137.508)%360)} 68% 60%)`;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const S = {
+  data:null, t:0, maxT:1, playing:false, speed:1, last:0,
+  view:[0,1], highlight:null, pinned:null, hover:null,
+  visible:new Set(ALGOS.map(a=>a.key)), arrivals:true, metric:"avg_waiting",
+};
+
+/* ============================== data loading ============================== */
+let fetchTimer=null, reqId=0;
+function params(){
+  return new URLSearchParams({n:$("#n").value, seed:$("#seed").value||0, quantum:$("#quantum").value, aging:$("#aging").value});
+}
+function scheduleFetch(){ clearTimeout(fetchTimer); fetchTimer=setTimeout(load,220); }
+async function load(){
+  const id=++reqId;
+  let data;
+  try{
+    const res=await fetch("/api/simulate?"+params());
+    if(!res.ok) throw new Error(res.status);
+    data=await res.json();
+  }catch(e){
+    toast("Couldn’t reach the simulator. Check that the terminal running dashboard/app.py is still open, then try again.");
+    return;
+  }
+  if(id!==reqId) return;
+  try{
+    S.data=data; S.highlight=null; S.pinned=null;
+    syncControls(data.params); renderLive(data.server);
+    S.maxT=Math.max(...ALGOS.map(a=>data.algorithms[a.key].makespan),1);
+    S.view=[0,S.maxT];
+    S.t = reduceMotion ? S.maxT : 0;
+    S.playing = !reduceMotion;
+    S.last=performance.now();
+    renderAll();
+    toast(null);
+  }catch(e){
+    console.error(e);
+    toast("Something went wrong drawing this batch. Reload the page; if it keeps happening, check the browser console.");
+  }
+}
+function toast(msg){const t=$("#toast"); if(!msg){t.classList.remove("on");return;} t.textContent=msg; t.classList.add("on");}
+
+/* ============================== timeline canvas ============================== */
+const cv=$("#tl"), ctx=cv.getContext("2d"), stage=$("#stage"), tip=$("#tip");
+const GEO={labelW:158, rightW:74, top:30, laneH:50, gap:12, pad:12};
+let hits=[], W=900, H=300, dpr=1;
+
+function lanes(){ return ALGOS.filter(a=>S.visible.has(a.key)); }
+function resize(){
+  dpr=window.devicePixelRatio||1;
+  W=stage.clientWidth;
+  const n=Math.max(lanes().length,1);
+  H=GEO.top+n*(GEO.laneH+GEO.gap)+GEO.pad-2;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  cv.style.height=H+"px";
+  draw();
+}
+new ResizeObserver(resize).observe(stage);
+
+const xOf = t => GEO.labelW + (t-S.view[0])/(S.view[1]-S.view[0]) * (W-GEO.labelW-GEO.rightW);
+const tOf = x => S.view[0] + (x-GEO.labelW)/(W-GEO.labelW-GEO.rightW)*(S.view[1]-S.view[0]);
+
+function niceStep(range){
+  const raw=range/9, mag=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/mag;
+  return (n<1.5?1:n<3?2:n<7?5:10)*mag;
+}
+function rr(c,x,y,w,h,r){
+  if(!(w>0&&h>0)){c.beginPath();return;}
+  r=Math.min(r,w/2,h/2); c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r);
+  c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+function draw(){
+  if(!S.data){ ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H); return; }
+  const c=ctx; c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
+  if(W-GEO.labelW-GEO.rightW<60) return;
+  const amber=css("--amber"), lane=css("--panel-2"), line=css("--line"), muted=css("--muted"), ink=css("--ink");
+  const x0=GEO.labelW, x1=W-GEO.rightW, L=lanes();
+  hits=[];
+
+  // time grid + axis
+  const step=niceStep(S.view[1]-S.view[0]);
+  c.font='500 10.5px "Cascadia Mono",Consolas,monospace'; c.textAlign="center"; c.textBaseline="alphabetic";
+  for(let tk=Math.ceil(S.view[0]/step)*step; tk<=S.view[1]+1e-6; tk+=step){
+    const x=xOf(tk); if(x<x0-1||x>x1+1) continue;
+    c.strokeStyle=line; c.lineWidth=1; c.beginPath(); c.moveTo(Math.round(x)+.5,GEO.top-6); c.lineTo(Math.round(x)+.5,H-GEO.pad+4); c.stroke();
+    c.fillStyle=muted; c.fillText(String(Math.round(tk*100)/100), x, 16);
+  }
+  c.textAlign="right"; c.fillStyle=muted; c.fillText("ms", W-GEO.rightW+30, 16);
+
+  L.forEach((a,i)=>{
+    const y=GEO.top+i*(GEO.laneH+GEO.gap), r=S.data.algorithms[a.key];
+    // lane background
+    c.fillStyle=lane; rr(c,x0,y,x1-x0,GEO.laneH,9); c.fill();
+    if(a.hl){ c.strokeStyle="rgba(255,178,36,.5)"; c.lineWidth=1; rr(c,x0+.5,y+.5,x1-x0-1,GEO.laneH-1,9); c.stroke(); }
+
+    // label block
+    c.textAlign="left"; c.textBaseline="alphabetic";
+    c.fillStyle=a.hl?amber:css("--text"); c.font='600 14px Bahnschrift,"Segoe UI",sans-serif';
+    c.fillText(a.label, 4, y+20);
+    c.fillStyle=muted; c.font='11px "Cascadia Mono",Consolas,monospace';
+    c.fillText("avg wait "+fmt(r.metrics.avg_waiting)+" ms", 4, y+36);
+    if(a.hl){ c.fillStyle=amber; rr(c,-4,y+6,3,GEO.laneH-12,2); c.fill(); }
+
+    // arrivals
+    if(S.arrivals){
+      S.data.processes.forEach(p=>{
+        const x=xOf(p.arrival); if(x<x0||x>x1) return;
+        c.fillStyle=pidColor(p.pid); c.globalAlpha=(S.highlight&&S.highlight!==p.pid)?.15:.9;
+        c.fillRect(Math.round(x)-1, y+GEO.laneH-5, 2, 5); c.globalAlpha=1;
+      });
+    }
+
+    // segments (clip to lane)
+    c.save(); rr(c,x0,y,x1-x0,GEO.laneH,9); c.clip();
+    r.gantt.forEach((s,idx)=>{
+      if(s.start>=S.t) return;
+      const end=Math.min(s.end,S.t);
+      let xs=xOf(s.start), xe=xOf(end);
+      if(xe<x0||xs>x1) return;
+      xs=Math.max(xs,x0); xe=Math.min(xe,x1);
+      const w=xe-xs; if(w<=0) return;
+      const dim=S.highlight&&S.highlight!==s.pid;
+      c.globalAlpha=dim?.18:1;
+      c.fillStyle=pidColor(s.pid);
+      c.fillRect(xs,y+4,Math.max(w,.6),GEO.laneH-8);
+      if(w>3){ c.fillStyle=ink; c.globalAlpha=dim?.25:.55; c.fillRect(xe-1,y+4,1,GEO.laneH-8); }
+      c.globalAlpha=dim?.3:1;
+      if(w>26){
+        c.fillStyle="rgba(8,12,20,.92)"; c.textAlign="center"; c.font='600 12px Bahnschrift,"Segoe UI",sans-serif';
+        c.fillText("P"+s.pid, xs+w/2, y+GEO.laneH/2+(w>58?-1:4));
+        if(w>58){ c.font='10px "Cascadia Mono",Consolas,monospace'; c.fillText((s.end-s.start)+" ms", xs+w/2, y+GEO.laneH/2+12); }
+      }
+      c.globalAlpha=1;
+      hits.push({x:xs,y:y+4,w:Math.max(w,2),h:GEO.laneH-8,lane:a.key,seg:s,idx});
+    });
+    c.restore();
+
+    // finished counter
+    const done=Object.values(r.per_process).filter(p=>p.completion<=S.t+1e-9).length, N=S.data.processes.length;
+    c.textAlign="right"; c.fillStyle=done===N?amber:css("--text"); c.font='600 15px "Cascadia Mono",Consolas,monospace';
+    c.fillText(done+"/"+N, W-6, y+24);
+    c.fillStyle=muted; c.font='10px "Cascadia Mono",Consolas,monospace'; c.fillText("done", W-6, y+38);
+  });
+
+  // playhead
+  const px=xOf(S.t);
+  if(px>=x0-1&&px<=x1+1){
+    c.save(); c.shadowColor=amber; c.shadowBlur=10; c.strokeStyle=amber; c.lineWidth=2;
+    c.beginPath(); c.moveTo(px,GEO.top-8); c.lineTo(px,H-GEO.pad+4); c.stroke(); c.restore();
+    c.fillStyle=amber; c.beginPath(); c.moveTo(px-6,GEO.top-14); c.lineTo(px+6,GEO.top-14); c.lineTo(px,GEO.top-5); c.closePath(); c.fill();
+  }
+  // hover ring
+  if(S.hover){
+    const h=S.hover; c.strokeStyle="#fff"; c.lineWidth=1.5; c.globalAlpha=.9; rr(c,h.x,h.y,h.w,h.h,3); c.stroke(); c.globalAlpha=1;
+  }
+}
+
+/* ---- pointer interaction: hover, click-to-trace, wheel zoom, drag pan ---- */
+let drag=null;
+function pos(e){const b=cv.getBoundingClientRect(); return {x:e.clientX-b.left, y:e.clientY-b.top};}
+function hitAt(x,y){ for(let i=hits.length-1;i>=0;i--){const h=hits[i]; if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h) return h;} return null; }
+
+cv.addEventListener("pointerdown",e=>{ const p=pos(e); drag={x:p.x, view:[...S.view], moved:false}; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove",e=>{
+  const p=pos(e);
+  if(drag){
+    const dx=p.x-drag.x; if(Math.abs(dx)>3) drag.moved=true;
+    if(drag.moved){
+      const span=drag.view[1]-drag.view[0], dt=-dx/(W-GEO.labelW-GEO.rightW)*span;
+      let a=drag.view[0]+dt, b=drag.view[1]+dt;
+      if(a<0){b-=a;a=0;} if(b>S.maxT){a-=b-S.maxT;b=S.maxT;}
+      S.view=[Math.max(0,a),Math.min(S.maxT,b)]; hideTip(); S.hover=null; draw(); return;
+    }
+  }
+  const h=hitAt(p.x,p.y);
+  S.hover=h; cv.style.cursor=h?"pointer":(S.view[1]-S.view[0]<S.maxT-.01?"grab":"crosshair");
+  h?showTip(h,p):hideTip(); draw();
+});
+cv.addEventListener("pointerup",e=>{
+  const p=pos(e); const wasDrag=drag&&drag.moved; drag=null;
+  if(wasDrag) return;
+  const h=hitAt(p.x,p.y);
+  if(h){ setHighlight(S.highlight===h.seg.pid?null:h.seg.pid);
+    if(h.lane==="ai"&&S.data.decisions[h.idx]) { S.pinned=h.idx; renderInspector(); } }
+  else if(p.x>=GEO.labelW&&p.x<=W-GEO.rightW){ S.playing=false; S.pinned=null; setT(Math.max(0,Math.min(S.maxT,tOf(p.x)))); }
+});
+cv.addEventListener("pointerleave",()=>{S.hover=null;hideTip();draw();});
+cv.addEventListener("dblclick",()=>{S.view=[0,S.maxT];draw();});
+cv.addEventListener("wheel",e=>{
+  e.preventDefault(); const p=pos(e), tc=tOf(Math.max(GEO.labelW,Math.min(W-GEO.rightW,p.x)));
+  const f=e.deltaY<0?0.8:1.25; let a=tc-(tc-S.view[0])*f, b=tc+(S.view[1]-tc)*f;
+  if(b-a>S.maxT){a=0;b=S.maxT;} if(b-a<4){const m=(a+b)/2;a=m-2;b=m+2;}
+  if(a<0){b-=a;a=0;} if(b>S.maxT){a-=b-S.maxT;b=S.maxT;}
+  S.view=[Math.max(0,a),Math.min(S.maxT,b)]; draw();
+},{passive:false});
+
+function showTip(h,p){
+  const d=S.data, proc=d.processes.find(q=>q.pid===h.seg.pid), r=d.algorithms[h.lane].per_process[h.seg.pid];
+  const rows=[
+    ["Runs", `${h.seg.start} → ${h.seg.end} ms`],
+    ["Arrived", `${proc.arrival} ms`],
+    ["Waited (total)", `${r.waiting} ms`],
+    ["True burst", `${proc.burst} ms`],
+  ];
+  if(h.lane==="ai") rows.push(["Predicted burst", `${fmt(proc.predicted_burst)} ms`]);
+  tip.innerHTML=`<b><span style="color:${pidColor(proc.pid)}">■</span> P${proc.pid} · ${proc.type}</b>`+
+    rows.map(r=>`<div class="row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join("");
+  tip.classList.add("on");
+  const w=tip.offsetWidth, hh=tip.offsetHeight;
+  let x=p.x+16, y=p.y-hh-10; if(x+w>W-6) x=p.x-w-16; if(y<4) y=p.y+18;
+  tip.style.left=x+"px"; tip.style.top=y+"px";
+}
+function hideTip(){tip.classList.remove("on");}
+
+/* ============================== playback ============================== */
+function setT(t){
+  S.t=t; $("#scrub").value=t; updateClock(); draw(); renderInspector(true);
+}
+function updateClock(){ $("#clock").innerHTML=`${fmt(S.t,0)} <small>/ ${S.maxT} ms</small>`; }
+function setPlaying(on){
+  S.playing=on; S.last=performance.now();
+  $("#play-ico").innerHTML = on ? '<path d="M3 1.5h3.5v13H3zM9.5 1.5H13v13H9.5z"/>' : '<path d="M3 1.5v13l11-6.5z"/>';
+  $("#play").setAttribute("aria-label", on?"Pause":"Play");
+  if(on) S.pinned=null;
+}
+function tick(now){
+  if(S.playing && S.data){
+    const dt=(now-S.last)/1000; S.last=now;
+    S.t=Math.min(S.maxT, S.t + dt*(S.maxT/14)*S.speed);
+    $("#scrub").value=S.t; updateClock(); draw(); renderInspector(true);
+    if(S.t>=S.maxT) setPlaying(false);
+  } else S.last=now;
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+$("#play").onclick=()=>{ if(S.t>=S.maxT-1e-6) S.t=0; setPlaying(!S.playing); };
+$("#restart").onclick=()=>{ S.t=0; S.pinned=null; setPlaying(true); };
+$("#scrub").oninput=e=>{ setPlaying(false); S.pinned=null; setT(+e.target.value); };
+$("#speed").onchange=e=>{ S.speed=+e.target.value; };
+
+function setHighlight(pid){
+  S.highlight=pid; renderLegend(); renderTable();
+  $("#tracing").classList.toggle("on",!!pid);
+  if(pid) $("#tracing-t").innerHTML=`Following <b style="color:${pidColor(pid)}">P${pid}</b>`;
+  draw();
+}
+$("#tracing-x").onclick=()=>setHighlight(null);
+
+/* ============================== rendering pieces ============================== */
+function renderAll(){
+  $("#scrub").max=S.maxT; $("#scrub").value=S.t;
+  setPlaying(S.playing);
+  resize(); updateClock(); renderLegend(); renderVerdict(); renderMetrics(); renderTable(); renderInspector();
+  $("#tracing").classList.remove("on");
+}
+function renderLegend(){
+  $("#legend").innerHTML=S.data.processes.map(p=>
+    `<button data-pid="${p.pid}" aria-pressed="${S.highlight===p.pid}"><i style="background:${pidColor(p.pid)}"></i>P${p.pid}</button>`).join("");
+  $("#legend").querySelectorAll("button").forEach(b=>b.onclick=()=>{const id=+b.dataset.pid; setHighlight(S.highlight===id?null:id);});
+}
+function renderVerdict(){
+  const A=S.data.algorithms, ai=A.ai.metrics.avg_waiting, f=A.fcfs.metrics.avg_waiting, s=A.sjf.metrics.avg_waiting;
+  const vsF=(f-ai)/f*100, gap=ai-s, closed=(f-s)>0.01?(f-ai)/(f-s)*100:null;
+  $("#verdict").innerHTML=`
+    <div class="stat ai"><div class="label">AI average wait</div><div class="v">${fmt(ai)} <span style="font-size:16px">ms</span></div><div class="n">${S.data.params.n} processes, seed ${S.data.params.seed}</div></div>
+    <div class="stat"><div class="label">Versus FCFS</div><div class="v ${vsF>=0?"good":"bad"}">${vsF>=0?"−":"+"}${fmt(Math.abs(vsF))}%</div><div class="n">${fmt(f)} ms → ${fmt(ai)} ms waiting</div></div>
+    <div class="stat"><div class="label">Versus oracle SJF</div><div class="v">${gap>=0?"+":"−"}${fmt(Math.abs(gap),2)} <span style="font-size:16px">ms</span></div><div class="n">SJF is told every true burst</div></div>
+    <div class="stat"><div class="label">Gap closed</div><div class="v ${closed!=null&&closed>=0?"good":""}">${closed==null?"—":fmt(closed)+"%"}</div><div class="n">of the FCFS → SJF distance</div></div>`;
+}
+function renderMetrics(){
+  const m=S.metric, A=S.data.algorithms, vals=ALGOS.map(a=>A[a.key].metrics[m]);
+  const max=Math.max(...vals,1e-9), min=Math.min(...vals);
+  const d=m==="context_switches"?0:1;
+  $("#mbars").innerHTML=ALGOS.map((a,i)=>`
+    <div class="mrow ${a.hl?"ai":""}">
+      <div class="nm ${a.hl?"ai":""}">${a.label}</div>
+      <div class="track"><i style="width:0%" data-w="${vals[i]/max*100}"></i></div>
+      <div class="val">${fmt(vals[i],d)}${vals[i]===min&&vals.filter(v=>v===min).length<ALGOS.length?'<span class="best">LOWEST</span>':""}</div>
+    </div>`).join("");
+  requestAnimationFrame(()=>requestAnimationFrame(()=>$("#mbars").querySelectorAll("i[data-w]").forEach(el=>el.style.width=el.dataset.w+"%")));
+  $("#mnote").textContent=METRICS[m].note;
+  document.querySelectorAll("#metric-seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===m));
+}
+function renderTable(){
+  const P=S.data.processes, A=S.data.algorithms.ai.per_process;
+  $("#ptable").innerHTML=`<thead><tr><th>Process</th><th>Type</th><th class="num">Arrival</th><th class="num">True burst</th><th class="num">Predicted</th>
+    <th class="num">Error</th><th class="num">Priority</th><th class="num">AI wait</th></tr></thead><tbody>`+
+    P.map(p=>{
+      const e=p.predicted_burst-p.burst, w=Math.min(Math.abs(e)/10,1)*46;
+      const match=p.priority===p.predicted_priority;
+      return `<tr data-pid="${p.pid}" class="${S.highlight===p.pid?"sel":""}">
+        <td><span class="pid"><i style="background:${pidColor(p.pid)}"></i>P${p.pid}</span></td>
+        <td><span class="pill">${p.type}</span></td>
+        <td class="num">${p.arrival}</td><td class="num">${p.burst}</td><td class="num">${fmt(p.predicted_burst)}</td>
+        <td class="num"><span class="err"><i style="width:${w}px;background:${Math.abs(e)<=3?"var(--good)":Math.abs(e)<=7?"var(--amber)":"var(--bad)"}"></i>${e>=0?"+":""}${fmt(e)}</span></td>
+        <td class="num">${p.priority} → ${p.predicted_priority} <span class="${match?"ok":"no"}">${match?"✓":"✗"}</span></td>
+        <td class="num">${A[p.pid].waiting}</td></tr>`;}).join("")+"</tbody>";
+  $("#ptable").querySelectorAll("tbody tr").forEach(tr=>tr.onclick=()=>{const id=+tr.dataset.pid; setHighlight(S.highlight===id?null:id);});
+}
+
+/* ---- decision inspector ---- */
+let lastStep=-2;
+function stepAt(t){ const D=S.data.decisions; let k=0; for(let i=0;i<D.length;i++){ if(D[i].time<=t+1e-9) k=i; } return k; }
+function renderInspector(fromTime){
+  if(!S.data) return;
+  const D=S.data.decisions, idx=S.pinned!=null?S.pinned:stepAt(S.t);
+  if(fromTime && idx===lastStep && S.pinned==null) return;
+  lastStep=idx;
+  const d=D[idx]; if(!d){ $("#cands").innerHTML='<div class="empty">No decisions yet.</div>'; return; }
+  $("#insp-meta").textContent=`CPU free at ${d.time} ms · ${d.queue.length} waiting`;
+  $("#step-o").textContent=`${idx+1} of ${D.length}`;
+  const scores=d.queue.map(q=>q.score), lo=Math.min(...scores,0), hi=Math.max(...scores,1), span=hi-lo||1;
+  $("#cands").innerHTML=d.queue.map((q,i)=>{
+    const win=i===0, pct=Math.max(3,(q.score-lo)/span*100);
+    const ag=q.aging_term, agTxt=ag===0?"− 0.0":(ag<0?"− "+fmt(Math.abs(ag)):"+ "+fmt(ag));
+    return `<div class="cand ${win?"win":""}">
+      <div class="pid"><i style="background:${pidColor(q.pid)}"></i>P${q.pid}</div>
+      <div><div class="bar"><i style="width:${pct}%"></i></div></div>
+      <div class="formula">${fmt(q.predicted_burst)} + ${fmt(q.priority_term)} ${agTxt} = <b>${fmt(q.score)}</b>${win?'<span class="badge">RUNS</span>':""}</div></div>`;
+  }).join("");
+}
+function stepBy(k){
+  const D=S.data.decisions, cur=S.pinned!=null?S.pinned:stepAt(S.t), n=Math.max(0,Math.min(D.length-1,cur+k));
+  S.pinned=n; setPlaying(false); S.pinned=n;
+  const seg=S.data.algorithms.ai.gantt[n]; S.t=seg?(seg.start+seg.end)/2:D[n].time;
+  $("#scrub").value=S.t; updateClock(); draw(); lastStep=-2; renderInspector();
+}
+$("#prev").onclick=()=>stepBy(-1); $("#next").onclick=()=>stepBy(1);
+
+/* ============================== controls ============================== */
+let lastRun=null;
+function renderLive(sv){
+  if(!sv){ $("#live-note").textContent=""; return; }
+  const at=new Date(sv.computed_at).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  const m=sv.model_trained?new Date(sv.model_trained).toLocaleString([], {dateStyle:"medium", timeStyle:"short"}):"unknown";
+  $("#live-note").textContent=`Computed live by the server at ${at} in ${sv.compute_ms} ms · predictions from the Random Forest trained ${m}`;
+}
+function syncControls(p){
+  $("#n").value=p.n; $("#n-o").textContent=p.n;
+  $("#seed").value=p.seed;
+  $("#quantum").value=p.quantum; $("#quantum-o").textContent=p.quantum+" ms";
+  $("#aging").value=p.aging; $("#aging-o").textContent=(+p.aging).toFixed(2);
+  updateSourceNote(p);
+}
+function updateSourceNote(p){
+  const el=$("#source-note");
+  if(!lastRun || lastRun.source==="default"){ el.hidden=true; return; }
+  const same=lastRun.n===p.n && lastRun.seed===p.seed && lastRun.quantum===p.quantum && Math.abs(lastRun.aging-p.aging)<1e-9;
+  const when=lastRun.time?new Date(lastRun.time).toLocaleString([], {dateStyle:"medium", timeStyle:"short"}):"";
+  const what=lastRun.source==="demo"?"demo run":"run";
+  el.hidden=false;
+  el.textContent = same
+    ? `This is the batch from your last ${what} (${p.n} processes, seed ${p.seed}${when?", "+when:""}).`
+    : `Custom batch. Your last ${what} used ${lastRun.n} processes, seed ${lastRun.seed}.`;
+}
+$("#n").oninput=e=>{$("#n-o").textContent=e.target.value; scheduleFetch();};
+$("#quantum").oninput=e=>{$("#quantum-o").textContent=e.target.value+" ms"; scheduleFetch();};
+$("#aging").oninput=e=>{$("#aging-o").textContent=(+e.target.value).toFixed(2); scheduleFetch();};
+$("#seed").oninput=scheduleFetch;
+$("#dice").onclick=()=>{ $("#seed").value=Math.floor(Math.random()*100000); scheduleFetch(); };
+document.querySelectorAll("#metric-seg button").forEach(b=>b.onclick=()=>{S.metric=b.dataset.m; renderMetrics();});
+$("#arrivals-chip").onclick=e=>{S.arrivals=!S.arrivals; e.currentTarget.setAttribute("aria-pressed",S.arrivals); draw();};
+$("#lane-chips").innerHTML=ALGOS.map(a=>`<button class="chip" data-k="${a.key}" aria-pressed="true" style="--c:${a.hl?"var(--amber)":"#8fa3d6"}"><span class="dot"></span>${a.label}</button>`).join("");
+document.querySelectorAll("#lane-chips .chip").forEach(b=>b.onclick=()=>{
+  const k=b.dataset.k, on=S.visible.has(k);
+  if(on&&S.visible.size===1) return;
+  on?S.visible.delete(k):S.visible.add(k); b.setAttribute("aria-pressed",!on); resize();
+});
+addEventListener("keydown",e=>{
+  if(e.target.matches("input[type=number],select")) return;
+  if($("#view-sim").hidden) return;
+  if(e.code==="Space"){ e.preventDefault(); $("#play").click(); }
+  else if(e.key==="ArrowRight"){ e.preventDefault(); stepBy(1); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); stepBy(-1); }
+});
+
+/* ============================== tabs ============================== */
+let resLoaded=false;
+function showTab(which){
+  const sim=which==="sim";
+  $("#view-sim").hidden=!sim; $("#view-res").hidden=sim;
+  $("#tab-sim").setAttribute("aria-selected",sim); $("#tab-res").setAttribute("aria-selected",!sim);
+  if(sim) resize(); else if(!resLoaded) loadResults();
+}
+$("#tab-sim").onclick=()=>showTab("sim"); $("#tab-res").onclick=()=>showTab("res");
+
+/* ============================== results tab ============================== */
+async function loadResults(){
+  const el=$("#res-main");
+  try{
+    const r=await (await fetch("/api/experiments")).json();
+    if(!r.available){ el.innerHTML='<div class="card pad empty">No experiment results found yet. Run <span class="mono">python experiments/run_experiments.py</span> once, then reload this page.</div>'; return; }
+    resLoaded=true; renderResults(r);
+  }catch(e){ el.innerHTML='<div class="card pad empty">Couldn’t load results. Is the server still running?</div>'; }
+}
+const NAME={"FCFS":"FCFS","SJF":"SJF","Round Robin (q=4)":"Round Robin","Priority":"Priority","AI Scheduler":"AI Scheduler"};
+
+function niceMax(v){const m=Math.pow(10,Math.floor(Math.log10(v))), n=v/m; for(const k of [1,1.2,1.5,2,2.5,3,4,5,6,8,10]) if(n<=k) return k*m; return 10*m;}
+
+function barChart(items){
+  const Wd=560, Ht=290, m={l:46,r:12,t:18,b:44}, iw=Wd-m.l-m.r, ih=Ht-m.t-m.b;
+  const top=niceMax(Math.max(...items.map(i=>i.value+(i.err||0)))*1.04), bw=iw/items.length;
+  let s=`<svg viewBox="0 0 ${Wd} ${Ht}" width="100%" role="img" aria-label="Average waiting time per algorithm with standard deviation">`;
+  for(let i=0;i<=4;i++){const v=top*i/4, y=m.t+ih-ih*i/4; s+=`<line class="grid" x1="${m.l}" x2="${Wd-m.r}" y1="${y}" y2="${y}"/><text x="${m.l-8}" y="${y+3}" text-anchor="end">${Math.round(v)}</text>`;}
+  items.forEach((it,i)=>{
+    const x=m.l+i*bw+bw*.18, w=bw*.64, h=it.value/top*ih, y=m.t+ih-h;
+    s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${it.hl?"var(--amber)":"#3a4a70"}"><title>${it.label}: ${fmt(it.value)} ms (± ${fmt(it.err)})</title></rect>`;
+    if(it.err){const cx=x+w/2, y1=m.t+ih-(it.value+it.err)/top*ih, y2=m.t+ih-(it.value-it.err)/top*ih;
+      s+=`<g stroke="var(--text)" stroke-width="1.2" opacity=".7"><line x1="${cx}" x2="${cx}" y1="${y1}" y2="${y2}"/><line x1="${cx-5}" x2="${cx+5}" y1="${y1}" y2="${y1}"/><line x1="${cx-5}" x2="${cx+5}" y1="${y2}" y2="${y2}"/></g>`;}
+    s+=`<text x="${x+w/2}" y="${y-(it.err?it.err/top*ih+6:6)}" text-anchor="middle" style="fill:var(--text)">${fmt(it.value)}</text>`;
+    s+=`<text x="${x+w/2}" y="${Ht-m.b+18}" text-anchor="middle" style="${it.hl?"fill:var(--amber)":""}">${it.label}</text>`;
+  });
+  return s+`<line class="axis" x1="${m.l}" x2="${Wd-m.r}" y1="${m.t+ih}" y2="${m.t+ih}"/></svg>`;
+}
+
+function lineChart({series,xs,xLabel,yLabel,yMin,yMax,refs=[]}){
+  const Wd=420, Ht=250, m={l:46,r:14,t:14,b:42}, iw=Wd-m.l-m.r, ih=Ht-m.t-m.b;
+  const all=series.flatMap(s=>s.vals).concat(refs.map(r=>r.v));
+  const lo=yMin??Math.min(...all)*.96, hi=yMax??Math.max(...all)*1.04;
+  const xo=i=>m.l+(xs.length===1?iw/2:i/(xs.length-1)*iw), yo=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
+  let s=`<svg viewBox="0 0 ${Wd} ${Ht}" width="100%" role="img" aria-label="${yLabel} against ${xLabel}">`;
+  for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4, y=yo(v); s+=`<line class="grid" x1="${m.l}" x2="${Wd-m.r}" y1="${y}" y2="${y}"/><text x="${m.l-7}" y="${y+3}" text-anchor="end">${Math.round(v)}</text>`;}
+  xs.forEach((x,i)=>{s+=`<text x="${xo(i)}" y="${Ht-m.b+16}" text-anchor="middle">${x}</text>`;});
+  s+=`<text x="${m.l+iw/2}" y="${Ht-6}" text-anchor="middle">${xLabel}</text>`;
+  refs.forEach(r=>{const y=yo(r.v); s+=`<line x1="${m.l}" x2="${Wd-m.r}" y1="${y}" y2="${y}" stroke="${r.c}" stroke-dasharray="4 4" opacity=".8"/><text x="${Wd-m.r}" y="${y-5}" text-anchor="end" style="fill:${r.c}">${r.label}</text>`;});
+  series.forEach(se=>{
+    const pts=se.vals.map((v,i)=>`${xo(i)},${yo(v)}`).join(" ");
+    s+=`<polyline points="${pts}" fill="none" stroke="${se.c}" stroke-width="2.4" stroke-linejoin="round" ${se.dash?'stroke-dasharray="5 4"':""}/>`;
+    se.vals.forEach((v,i)=>{s+=`<circle cx="${xo(i)}" cy="${yo(v)}" r="3.6" fill="${se.c}" stroke="var(--panel)" stroke-width="2"><title>${se.name}: ${fmt(v)} at ${xs[i]}</title></circle>`;});
+  });
+  return s+`<line class="axis" x1="${m.l}" x2="${Wd-m.r}" y1="${m.t+ih}" y2="${m.t+ih}"/></svg>`;
+}
+
+function renderResults(r){
+  const rep=r.model_report[0], ex=r.extra[0], B=r.batches;
+  const byName=Object.fromEntries(B.map(b=>[b.algorithm,b]));
+  const fcfs=byName["FCFS"].avg_waiting, sjf=byName["SJF"].avg_waiting;
+  const items=B.map(b=>({label:NAME[b.algorithm]||b.algorithm,value:b.avg_waiting,err:b.waiting_std,hl:b.algorithm==="AI Scheduler"}));
+  const rrKey=B.find(b=>b.algorithm.startsWith("Round"))?.algorithm;
+
+  const cmp=r.model_comparison.map(c=>`<tr><td>${c.task.split(" ")[0]}</td><td>${c.model}</td>
+    <td class="num">${c.MAE==null?"—":fmt(c.MAE,2)}</td><td class="num">${c.R2==null?"—":fmt(c.R2,3)}</td>
+    <td class="num">${c.accuracy==null?"—":fmt(c.accuracy,3)}</td><td class="num">${c.macro_F1==null?"—":fmt(c.macro_F1,3)}</td></tr>`).join("");
+
+  const ag=r.aging, qu=r.quantum, no=r.noise;
+  $("#res-main").innerHTML=`
+    <section class="card hero">
+      <div class="eyebrow">Results</div>
+      <h1 class="h2">What 200 random batches say</h1>
+      <p class="sub">Each batch has 20 processes. Models are trained on separate data, so none of these processes were seen in training.</p>
+    </section>
+
+    <section class="grid4">
+      <div class="card kpi"><div class="label">Burst-time error (MAE)</div><div class="v">${fmt(rep.burst_mae,2)} <span style="font-size:15px">ms</span></div><div class="n">R² ${fmt(rep.burst_r2,3)} on held-out data</div></div>
+      <div class="card kpi"><div class="label">Priority accuracy</div><div class="v">${fmt(rep.priority_accuracy,3)}</div><div class="n">macro-F1 ${fmt(rep.priority_f1,3)}</div></div>
+      <div class="card kpi" style="background:linear-gradient(180deg,var(--amber-soft),transparent)"><div class="label">AI waiting vs FCFS</div><div class="v" style="color:var(--amber)">−${fmt((fcfs-byName["AI Scheduler"].avg_waiting)/fcfs*100)}%</div><div class="n">${fmt(fcfs)} → ${fmt(byName["AI Scheduler"].avg_waiting)} ms</div></div>
+      <div class="card kpi"><div class="label">Gap to SJF closed</div><div class="v">${fmt(ex.gap_closed_mean_pct)}%</div><div class="n">${fmt(ex.AI_minus_SJF_mean_ms,2)} ms above SJF</div></div>
+    </section>
+
+    <div class="two" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)">
+      <section class="card pad">
+        <div class="chart-t">Average waiting time, 200 batches</div>
+        <p class="chart-n">Bars are means; whiskers are one standard deviation across batches. Lower is better.</p>
+        ${barChart(items)}
+      </section>
+      <section class="card pad">
+        <div class="chart-t">How often the AI scheduler wins</div>
+        <p class="chart-n">Share of the 200 batches with lower average waiting.</p>
+        <div class="facts" style="grid-template-columns:1fr">
+          <div class="fact"><span>Beats FCFS</span><span>${fmt(ex.AI_beats_FCFS_pct,1)}%</span></div>
+          <div class="fact"><span>Beats Round Robin</span><span>${fmt(ex.AI_beats_RR_pct,1)}%</span></div>
+          <div class="fact"><span>Beats Priority</span><span>${fmt(ex.AI_beats_Priority_pct,1)}%</span></div>
+          <div class="fact"><span>Matches or beats SJF</span><span>${fmt(ex.AI_matches_or_beats_SJF_pct,1)}%</span></div>
+          <div class="fact"><span>Mean prediction error</span><span>${fmt(ex.batch_prediction_MAE_ms,2)} ms</span></div>
+          <div class="fact"><span>Median gap closed</span><span>${fmt(ex.gap_closed_median_pct,1)}%</span></div>
+        </div>
+        <p class="note" style="margin-top:14px">SJF never loses to the AI scheduler because SJF is handed the true burst times. The AI scheduler only guesses them.</p>
+      </section>
+    </div>
+
+    <div class="charts">
+      <section class="card pad">
+        <div class="chart-t">Aging factor α</div>
+        <p class="chart-n">A bigger α protects long jobs from waiting, but costs average wait.</p>
+        ${lineChart({xs:ag.map(a=>a.aging),xLabel:"aging factor α",yLabel:"waiting (ms)",
+          series:[{name:"Average waiting",c:"#ffb224",vals:ag.map(a=>a.avg_waiting)},{name:"Longest wait",c:"#8fa3d6",vals:ag.map(a=>a.max_waiting),dash:true}]})}
+        <div class="legend"><span style="color:var(--amber)">━ average</span><span style="color:#8fa3d6">╌ longest</span></div>
+      </section>
+      <section class="card pad">
+        <div class="chart-t">Round Robin quantum</div>
+        <p class="chart-n">A larger time slice drifts toward FCFS, with fewer switches and slower response.</p>
+        ${lineChart({xs:qu.map(a=>a.quantum),xLabel:"quantum (ms)",yLabel:"waiting (ms)",
+          series:[{name:"Average waiting",c:"#ffb224",vals:qu.map(a=>a.avg_waiting)},{name:"Average response",c:"#8fa3d6",vals:qu.map(a=>a.avg_response)}],
+          refs:[{v:byName["AI Scheduler"].avg_waiting,c:"#5fd6a0",label:"AI scheduler"}]})}
+        <div class="legend"><span style="color:var(--amber)">━ waiting</span><span style="color:#8fa3d6">━ response</span></div>
+      </section>
+      <section class="card pad">
+        <div class="chart-t">Robustness to bad predictions</div>
+        <p class="chart-n">Random noise added to every predicted burst before scheduling.</p>
+        ${lineChart({xs:no.map(a=>a.extra_noise_sd_ms),xLabel:"added noise, std. dev. (ms)",yLabel:"waiting (ms)",
+          series:[{name:"AI scheduler",c:"#ffb224",vals:no.map(a=>a.avg_waiting)}],
+          refs:[{v:fcfs,c:"#ff7a7a",label:"FCFS"},{v:sjf,c:"#5fd6a0",label:"SJF oracle"}],yMin:260,yMax:380})}
+      </section>
+    </div>
+
+    <section class="card pad">
+      <div class="chart-t">Candidate models</div>
+      <p class="chart-n">Same split for every model. Linear Regression is slightly better on burst time because the synthetic data is close to linear; the Random Forest wins on priority.</p>
+      <div class="tablewrap"><table><thead><tr><th>Task</th><th>Model</th><th class="num">MAE (ms)</th><th class="num">R²</th><th class="num">Accuracy</th><th class="num">Macro-F1</th></tr></thead><tbody>${cmp}</tbody></table></div>
+    </section>
+    <p class="note">All data in this project is synthetic, generated from a documented formula. These results show that the approach and pipeline work, not how the scheduler would perform on real workloads.</p>`;
+}
+
+/* ============================== boot ============================== */
+resize();
+(async function boot(){
+  try{
+    lastRun=await (await fetch("/api/last-run")).json();
+    ["n","seed","quantum","aging"].forEach(k=>{ const el=$("#"+k); if(el&&lastRun[k]!=null) el.value=lastRun[k]; });
+  }catch(e){ lastRun=null; }
+  load();
+})();
+</script>
+</body>
+</html>

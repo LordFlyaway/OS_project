@@ -12,12 +12,27 @@ Usage
 from __future__ import annotations
 
 import argparse
+import inspect
+import json
+import os
 import sys
+from datetime import datetime
 
 from src.data_generation import generate_dataset, generate_processes
-from src.evaluation import print_report, save_all
+from src.evaluation import OUTPUT_DIR, print_report, save_all
 from src.prediction import Predictor, compare_models, train_models
-from src.schedulers import run_all
+from src.schedulers import ai_scheduler, run_all
+
+LAST_RUN_PATH = os.path.join(OUTPUT_DIR, "last_run.json")
+
+
+def _save_last_run(args: argparse.Namespace) -> None:
+    """Remember which batch was just simulated so the dashboard can replay it."""
+    aging = inspect.signature(ai_scheduler).parameters["aging_factor"].default
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(LAST_RUN_PATH, "w", encoding="utf-8") as f:
+        json.dump({"n": args.n, "seed": args.seed, "quantum": args.quantum, "aging": aging,
+                   "source": args.command, "time": datetime.now().isoformat(timespec="seconds")}, f)
 
 
 def _load_or_train_predictor() -> Predictor:
@@ -62,6 +77,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     results = run_all(processes, quantum=args.quantum)
     print_report(results)
+    _save_last_run(args)
 
     if not args.no_plots:
         paths = save_all(results)

@@ -1,0 +1,2 @@
+batch_prediction_MAE_ms,AI_beats_FCFS_pct,AI_beats_Priority_pct,AI_beats_RR_pct,AI_matches_or_beats_SJF_pct,gap_closed_mean_pct,gap_closed_median_pct,AI_minus_SJF_mean_ms
+2.621625414048166,100.0,99.5,100.0,0.0,95.71733602384259,96.14520699426363,3.405749999999998

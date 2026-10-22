@@ -29,6 +29,26 @@ python main.py demo      # 8-process comparison, writes charts to outputs/
 Full usage, every command and the project explanation are in
 **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**.
 
+## Interactive dashboard
+
+A local web dashboard animates all five schedulers on the same batch of processes.
+
+```bash
+python dashboard/app.py        # then open http://127.0.0.1:5050
+```
+
+or double-click `run_all.bat` (setup, train, run, then the dashboard opens), or `run_dashboard.bat`
+for the dashboard only. Features: interactive Gantt lanes (hover, zoom, pan, click a process to follow
+it across every policy), a decision inspector showing the AI scheduler's score for each waiting process,
+a scoreboard, predicted-versus-true burst times, and a Results tab with the 200-batch experiments.
+
+### Deploying it online
+
+`render.yaml` is a [Render](https://render.com) blueprint. Create a free Render account, choose
+**New > Blueprint**, and point it at this repository. The build trains the models; the start command
+runs the Flask app with gunicorn. The free tier sleeps when idle, so the first load after a pause can
+take about a minute.
+
 ## Sample result
 
 8-process demo (`python main.py demo`), lower is better:
@@ -52,6 +72,10 @@ MAE about 2.7 ms, priority accuracy about 92%.
 
 ```
 main.py                      command-line entry point
+dashboard/                   Flask server + web page (animated Gantt, results)
+experiments/                 reproducible experiments + result CSVs
+render.yaml                  one-click deploy blueprint (Render)
+run_all.bat                  Windows: setup, run everything, open dashboard
 src/
   process.py                 Process object (the simulator's PCB)
   data_generation.py         Module 1: synthetic historical process data

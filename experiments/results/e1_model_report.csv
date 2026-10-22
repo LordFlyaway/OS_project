@@ -1,0 +1,2 @@
+n_train,n_test,burst_mae,burst_r2,priority_accuracy,priority_f1
+3000,1000,2.687527922058334,0.9609448347766008,0.92,0.8991727109165133

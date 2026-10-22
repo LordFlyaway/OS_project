@@ -1,0 +1,6 @@
+algorithm,avg_waiting,waiting_std,avg_turnaround,avg_response,max_waiting,context_switches,cpu_util
+FCFS,364.74,42.81,404.95,364.74,727.56,19.0,99.81
+SJF,279.11,40.47,319.33,279.11,715.35,19.0,99.81
+Round Robin (q=4),552.64,81.33,592.85,35.26,719.42,207.71,99.81
+Priority,297.57,42.58,337.79,297.57,715.39,19.0,99.81
+AI Scheduler,282.51,40.45,322.73,282.51,711.21,19.0,99.81

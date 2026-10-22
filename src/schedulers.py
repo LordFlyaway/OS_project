@@ -91,9 +91,11 @@ def _prepare(processes: list[Process]) -> list[Process]:
 # ---------------------------------------------------------------------------
 
 
-def _run_non_preemptive(processes: list[Process], algorithm: str, key) -> ScheduleResult:
+def _run_non_preemptive(processes: list[Process], algorithm: str, key,
+                        trace: list | None = None) -> ScheduleResult:
     """`key(process, now)` -> sort key; the ready process with the smallest key
-    runs next and runs to completion."""
+    runs next and runs to completion. If `trace` is a list, every dispatch
+    decision (time, ready queue with scores, winner) is appended to it."""
     procs = _prepare(processes)
     n = len(procs)
     result = ScheduleResult(algorithm=algorithm, processes=procs)
@@ -113,6 +115,9 @@ def _run_non_preemptive(processes: list[Process], algorithm: str, key) -> Schedu
             continue
 
         ready.sort(key=lambda p: (key(p, time), p.arrival_time, p.pid))
+        if trace is not None:
+            trace.append({"time": time,
+                          "queue": [{"pid": p.pid, "score": key(p, time)} for p in ready]})
         current = ready.pop(0)
 
         start = time
@@ -201,7 +206,8 @@ def round_robin(processes: list[Process], quantum: int = 4) -> ScheduleResult:
 # ---------------------------------------------------------------------------
 
 
-def ai_scheduler(processes: list[Process], aging_factor: float = 0.35) -> ScheduleResult:
+def ai_scheduler(processes: list[Process], aging_factor: float = 0.35,
+                 trace: list | None = None) -> ScheduleResult:
     """Predicted-SJF with a predicted-priority tie-break and aging.
 
     Selection key for a ready process at time `now`:
@@ -225,7 +231,7 @@ def ai_scheduler(processes: list[Process], aging_factor: float = 0.35) -> Schedu
                 + 0.5 * p.predicted_priority
                 - aging_factor * wait)
 
-    return _run_non_preemptive(processes, "AI Scheduler", key=key)
+    return _run_non_preemptive(processes, "AI Scheduler", key=key, trace=trace)
 
 
 # ---------------------------------------------------------------------------

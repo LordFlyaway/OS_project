@@ -9,6 +9,7 @@ All figures are written to ai_task_scheduler/outputs/.
 from __future__ import annotations
 
 import os
+import re
 
 import matplotlib
 import pandas as pd
@@ -107,5 +108,25 @@ def plot_gantt(results: list[ScheduleResult],
     return path
 
 
+def next_run_dir() -> str:
+    """Create and return outputs/output_N, where N is one more than the highest
+    existing output_<number> folder, so every run keeps its own charts."""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    taken = [int(m.group(1)) for name in os.listdir(OUTPUT_DIR)
+             if (m := re.fullmatch(r"output_(\d+)", name))]
+    n = max(taken, default=0) + 1
+    while True:
+        path = os.path.join(OUTPUT_DIR, f"output_{n}")
+        try:
+            os.makedirs(path)
+            return os.path.normpath(path)
+        except FileExistsError:
+            n += 1
+
+
 def save_all(results: list[ScheduleResult]) -> list[str]:
-    return [plot_metric_bars(results), plot_gantt(results)]
+    run_dir = next_run_dir()
+    return [
+        plot_metric_bars(results, os.path.join(run_dir, "metrics_comparison.png")),
+        plot_gantt(results, os.path.join(run_dir, "gantt_charts.png")),
+    ]

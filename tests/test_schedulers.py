@@ -12,7 +12,8 @@ class SchedulerInvariants(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.procs = generate_processes(15, seed=1)
-        Predictor.train_and_get(n_rows=1500).annotate(cls.procs)
+        # save=False: the tests must never overwrite the real trained models
+        Predictor.train_and_get(n_rows=1500, save=False).annotate(cls.procs)
 
     def test_all_processes_complete(self):
         for algo in (fcfs, sjf, round_robin, ai_scheduler):

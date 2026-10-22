@@ -1,0 +1,12 @@
+# Render blueprint: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: scheduler-lab
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python main.py train
+    startCommand: gunicorn dashboard.app:app --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
