@@ -11,6 +11,7 @@ models can be swapped or retrained without changing scheduling code.
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 
@@ -25,13 +26,18 @@ from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, r2_sc
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-from .data_generation import generate_dataset
+from .data_generation import DEFAULT_NOISE, generate_dataset
 from .feature_engineering import build_preprocessor, processes_to_frame
 from .process import FEATURE_COLUMNS, Process
 
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "outputs", "models")
 BURST_MODEL_PATH = os.path.join(MODEL_DIR, "burst_regressor.joblib")
 PRIORITY_MODEL_PATH = os.path.join(MODEL_DIR, "priority_classifier.joblib")
+
+# Size of the deployed Random Forests. 20 trees keep ~99% of the 100-tree accuracy with a
+# roughly 5x smaller model (see experiments/run_model_charts.py, panel D); n_jobs=1 avoids
+# the thread start-up cost that dominates a single small prediction.
+RF_TREES = 20
 
 
 @dataclass
@@ -59,21 +65,24 @@ class TrainingReport:
 def _build_regressor() -> Pipeline:
     return Pipeline([
         ("prep", build_preprocessor()),
-        ("model", RandomForestRegressor(n_estimators=100, min_samples_leaf=3, random_state=0, n_jobs=-1)),
+        ("model", RandomForestRegressor(n_estimators=RF_TREES, min_samples_leaf=3, random_state=0, n_jobs=1)),
     ])
 
 
 def _build_classifier() -> Pipeline:
     return Pipeline([
         ("prep", build_preprocessor()),
-        ("model", RandomForestClassifier(n_estimators=100, min_samples_leaf=3, random_state=0, n_jobs=-1)),
+        ("model", RandomForestClassifier(n_estimators=RF_TREES, min_samples_leaf=3, random_state=0, n_jobs=1)),
     ])
 
 
-def train_models(n_rows: int = 4000, seed: int = 42,
-                 save: bool = True) -> tuple[Pipeline, Pipeline, TrainingReport]:
+MODEL_META_PATH = os.path.join(MODEL_DIR, "meta.json")
+
+
+def train_models(n_rows: int = 4000, seed: int = 42, save: bool = True,
+                 noise=None) -> tuple[Pipeline, Pipeline, TrainingReport]:
     """Generate data, fit both pipelines, evaluate on a held-out split."""
-    df = generate_dataset(n_rows=n_rows, seed=seed)
+    df = generate_dataset(n_rows=n_rows, seed=seed, noise=noise)
     X = df[FEATURE_COLUMNS]
     y_burst = df["actual_burst_time"]
     y_prio = df["actual_priority"]
@@ -101,6 +110,8 @@ def train_models(n_rows: int = 4000, seed: int = 42,
         os.makedirs(MODEL_DIR, exist_ok=True)
         joblib.dump(regressor, BURST_MODEL_PATH)
         joblib.dump(classifier, PRIORITY_MODEL_PATH)
+        with open(MODEL_META_PATH, "w", encoding="utf-8") as f:      # what these models were trained on
+            json.dump({"noise": noise if isinstance(noise, str) else DEFAULT_NOISE, "rows": n_rows, "trees": RF_TREES}, f)
 
     return regressor, classifier, report
 
@@ -146,9 +157,9 @@ class Predictor:
         return processes
 
 
-def compare_models(n_rows: int = 4000, seed: int = 42) -> pd.DataFrame:
+def compare_models(n_rows: int = 4000, seed: int = 42, noise=None) -> pd.DataFrame:
     """Report objective 2: evaluate the candidate scikit-learn models."""
-    df = generate_dataset(n_rows=n_rows, seed=seed)
+    df = generate_dataset(n_rows=n_rows, seed=seed, noise=noise)
     X, yb, yp = df[FEATURE_COLUMNS], df["actual_burst_time"], df["actual_priority"]
     X_tr, X_te, yb_tr, yb_te, yp_tr, yp_te = train_test_split(
         X, yb, yp, test_size=0.25, random_state=seed)
@@ -156,8 +167,8 @@ def compare_models(n_rows: int = 4000, seed: int = 42) -> pd.DataFrame:
     rows = []
     regs = {"Linear Regression": LinearRegression(),
             "Decision Tree": DecisionTreeRegressor(max_depth=8, random_state=0),
-            "Random Forest": RandomForestRegressor(n_estimators=100, min_samples_leaf=3,
-                                                   random_state=0, n_jobs=-1)}
+            "Random Forest": RandomForestRegressor(n_estimators=RF_TREES, min_samples_leaf=3,
+                                                   random_state=0, n_jobs=1)}
     for name, m in regs.items():
         pipe = Pipeline([("prep", build_preprocessor()), ("model", m)]).fit(X_tr, yb_tr)
         pred = pipe.predict(X_te)
@@ -166,8 +177,8 @@ def compare_models(n_rows: int = 4000, seed: int = 42) -> pd.DataFrame:
                      "R2": round(r2_score(yb_te, pred), 3)})
     clfs = {"k-Nearest Neighbours": KNeighborsClassifier(n_neighbors=7),
             "Decision Tree": DecisionTreeClassifier(max_depth=8, random_state=0),
-            "Random Forest": RandomForestClassifier(n_estimators=100, min_samples_leaf=3,
-                                                    random_state=0, n_jobs=-1)}
+            "Random Forest": RandomForestClassifier(n_estimators=RF_TREES, min_samples_leaf=3,
+                                                    random_state=0, n_jobs=1)}
     for name, m in clfs.items():
         pipe = Pipeline([("prep", build_preprocessor()), ("model", m)]).fit(X_tr, yp_tr)
         pred = pipe.predict(X_te)

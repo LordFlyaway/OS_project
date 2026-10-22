@@ -1,0 +1,129 @@
+regime,label,seed,model,MAE_vs_truth,columns_after_encoding
+A,"A · Simple 5 numeric, linear",0,Linear Regression,0.030623158634670352,5
+A,"A · Simple 5 numeric, linear",0,k-NN,0.652630913304239,5
+A,"A · Simple 5 numeric, linear",0,Decision Tree,0.8874304108043203,5
+A,"A · Simple 5 numeric, linear",0,Random Forest (100),0.7725137643932617,5
+A,"A · Simple 5 numeric, linear",0,Random Forest (20),0.8178797771693549,5
+A,"A · Simple 5 numeric, linear",0,SVM,0.24302395927846737,5
+A,"A · Simple 5 numeric, linear",0,Neural net,0.1808027170157116,5
+A,"A · Simple 5 numeric, linear",0,XGBoost,0.38800084989710976,5
+A,"A · Simple 5 numeric, linear",1,Linear Regression,0.03450837789216012,5
+A,"A · Simple 5 numeric, linear",1,k-NN,0.6192030177272613,5
+A,"A · Simple 5 numeric, linear",1,Decision Tree,0.8949274031218911,5
+A,"A · Simple 5 numeric, linear",1,Random Forest (100),0.794315309381152,5
+A,"A · Simple 5 numeric, linear",1,Random Forest (20),0.8083379671832478,5
+A,"A · Simple 5 numeric, linear",1,SVM,0.2475621978709061,5
+A,"A · Simple 5 numeric, linear",1,Neural net,0.1640033105598913,5
+A,"A · Simple 5 numeric, linear",1,XGBoost,0.36095807202427876,5
+A,"A · Simple 5 numeric, linear",2,Linear Regression,0.03485631614314213,5
+A,"A · Simple 5 numeric, linear",2,k-NN,0.6385666694188321,5
+A,"A · Simple 5 numeric, linear",2,Decision Tree,0.8836730267367516,5
+A,"A · Simple 5 numeric, linear",2,Random Forest (100),0.7945417873979074,5
+A,"A · Simple 5 numeric, linear",2,Random Forest (20),0.8215489151067593,5
+A,"A · Simple 5 numeric, linear",2,SVM,0.277532978423695,5
+A,"A · Simple 5 numeric, linear",2,Neural net,0.20113990440050028,5
+A,"A · Simple 5 numeric, linear",2,XGBoost,0.36521608604377453,5
+A,"A · Simple 5 numeric, linear",3,Linear Regression,0.037243783557793356,5
+A,"A · Simple 5 numeric, linear",3,k-NN,0.624645653558339,5
+A,"A · Simple 5 numeric, linear",3,Decision Tree,0.8473553256203252,5
+A,"A · Simple 5 numeric, linear",3,Random Forest (100),0.8137904215750116,5
+A,"A · Simple 5 numeric, linear",3,Random Forest (20),0.8131723121610296,5
+A,"A · Simple 5 numeric, linear",3,SVM,0.2763530580201496,5
+A,"A · Simple 5 numeric, linear",3,Neural net,0.1866541343038383,5
+A,"A · Simple 5 numeric, linear",3,XGBoost,0.3855252649603003,5
+B,B · Non-linear 12 mixed features,0,Linear Regression,3.2302258754572404,31
+B,B · Non-linear 12 mixed features,0,k-NN,2.7001361764731966,31
+B,B · Non-linear 12 mixed features,0,Decision Tree,3.0903216697723965,31
+B,B · Non-linear 12 mixed features,0,Random Forest (100),2.191889949613508,31
+B,B · Non-linear 12 mixed features,0,Random Forest (20),2.246965504093222,31
+B,B · Non-linear 12 mixed features,0,SVM,1.630466133731557,31
+B,B · Non-linear 12 mixed features,0,Neural net,1.9233170104619524,31
+B,B · Non-linear 12 mixed features,0,XGBoost,1.2395170975621366,31
+B,B · Non-linear 12 mixed features,1,Linear Regression,3.230182227825076,31
+B,B · Non-linear 12 mixed features,1,k-NN,2.6475611903807263,31
+B,B · Non-linear 12 mixed features,1,Decision Tree,2.9908501345153806,31
+B,B · Non-linear 12 mixed features,1,Random Forest (100),2.2127900761880643,31
+B,B · Non-linear 12 mixed features,1,Random Forest (20),2.2846950392661767,31
+B,B · Non-linear 12 mixed features,1,SVM,1.6415931037417941,31
+B,B · Non-linear 12 mixed features,1,Neural net,1.7960297960444842,31
+B,B · Non-linear 12 mixed features,1,XGBoost,1.201983469165339,31
+B,B · Non-linear 12 mixed features,2,Linear Regression,3.2964844421299,31
+B,B · Non-linear 12 mixed features,2,k-NN,3.0061144730133282,31
+B,B · Non-linear 12 mixed features,2,Decision Tree,3.0342859075584525,31
+B,B · Non-linear 12 mixed features,2,Random Forest (100),2.352955829711012,31
+B,B · Non-linear 12 mixed features,2,Random Forest (20),2.422109372377695,31
+B,B · Non-linear 12 mixed features,2,SVM,1.7269792986680685,31
+B,B · Non-linear 12 mixed features,2,Neural net,2.055866650596756,31
+B,B · Non-linear 12 mixed features,2,XGBoost,1.2456472575353137,31
+B,B · Non-linear 12 mixed features,3,Linear Regression,3.265283376275113,31
+B,B · Non-linear 12 mixed features,3,k-NN,2.635809304806431,31
+B,B · Non-linear 12 mixed features,3,Decision Tree,3.0991534470611892,31
+B,B · Non-linear 12 mixed features,3,Random Forest (100),2.252519414813899,31
+B,B · Non-linear 12 mixed features,3,Random Forest (20),2.3589914051032843,31
+B,B · Non-linear 12 mixed features,3,SVM,1.6265884071428833,31
+B,B · Non-linear 12 mixed features,3,Neural net,1.7963269908798294,31
+B,B · Non-linear 12 mixed features,3,XGBoost,1.2277813989855666,31
+C,C · Wide + mixed +40 irrelevant columns,0,Linear Regression,3.3698834813402763,261
+C,C · Wide + mixed +40 irrelevant columns,0,k-NN,3.57845785805817,261
+C,C · Wide + mixed +40 irrelevant columns,0,Decision Tree,3.507421260883844,261
+C,C · Wide + mixed +40 irrelevant columns,0,Random Forest (100),2.4543119992643487,261
+C,C · Wide + mixed +40 irrelevant columns,0,Random Forest (20),2.5260543202429218,261
+C,C · Wide + mixed +40 irrelevant columns,0,SVM,2.470153014388548,261
+C,C · Wide + mixed +40 irrelevant columns,0,Neural net,3.3620716899568013,261
+C,C · Wide + mixed +40 irrelevant columns,0,XGBoost,1.6181485669216271,261
+C,C · Wide + mixed +40 irrelevant columns,1,Linear Regression,3.3382125478340168,261
+C,C · Wide + mixed +40 irrelevant columns,1,k-NN,3.678897178040091,261
+C,C · Wide + mixed +40 irrelevant columns,1,Decision Tree,3.371472955664004,261
+C,C · Wide + mixed +40 irrelevant columns,1,Random Forest (100),2.4386131180765904,261
+C,C · Wide + mixed +40 irrelevant columns,1,Random Forest (20),2.5329880408144994,261
+C,C · Wide + mixed +40 irrelevant columns,1,SVM,2.4942212812399176,261
+C,C · Wide + mixed +40 irrelevant columns,1,Neural net,3.212012577248248,261
+C,C · Wide + mixed +40 irrelevant columns,1,XGBoost,1.6166949876712606,261
+C,C · Wide + mixed +40 irrelevant columns,2,Linear Regression,3.477574747951113,261
+C,C · Wide + mixed +40 irrelevant columns,2,k-NN,4.192203566241144,261
+C,C · Wide + mixed +40 irrelevant columns,2,Decision Tree,3.352565679333544,261
+C,C · Wide + mixed +40 irrelevant columns,2,Random Forest (100),2.6398281740878136,261
+C,C · Wide + mixed +40 irrelevant columns,2,Random Forest (20),2.7049681392883356,261
+C,C · Wide + mixed +40 irrelevant columns,2,SVM,2.610055066242103,261
+C,C · Wide + mixed +40 irrelevant columns,2,Neural net,3.329513777348803,261
+C,C · Wide + mixed +40 irrelevant columns,2,XGBoost,1.7387952771396284,261
+C,C · Wide + mixed +40 irrelevant columns,3,Linear Regression,3.4674929828661654,261
+C,C · Wide + mixed +40 irrelevant columns,3,k-NN,3.655920991906254,261
+C,C · Wide + mixed +40 irrelevant columns,3,Decision Tree,3.5245570665025014,261
+C,C · Wide + mixed +40 irrelevant columns,3,Random Forest (100),2.5049026986846403,261
+C,C · Wide + mixed +40 irrelevant columns,3,Random Forest (20),2.600492012559559,261
+C,C · Wide + mixed +40 irrelevant columns,3,SVM,2.5838235802951703,261
+C,C · Wide + mixed +40 irrelevant columns,3,Neural net,3.2060146186509084,261
+C,C · Wide + mixed +40 irrelevant columns,3,XGBoost,1.6040759559929674,261
+D,"D · Wide + messy heavy noise, 1k rows",0,Linear Regression,6.121694468041942,261
+D,"D · Wide + messy heavy noise, 1k rows",0,k-NN,4.375983486190728,261
+D,"D · Wide + messy heavy noise, 1k rows",0,Decision Tree,5.4005698019825665,261
+D,"D · Wide + messy heavy noise, 1k rows",0,Random Forest (100),3.3079571464125257,261
+D,"D · Wide + messy heavy noise, 1k rows",0,Random Forest (20),3.6117395136824917,261
+D,"D · Wide + messy heavy noise, 1k rows",0,SVM,3.4270269775220186,261
+D,"D · Wide + messy heavy noise, 1k rows",0,Neural net,4.5997290133181545,261
+D,"D · Wide + messy heavy noise, 1k rows",0,XGBoost,2.867938858072445,261
+D,"D · Wide + messy heavy noise, 1k rows",1,Linear Regression,4.573858480809904,261
+D,"D · Wide + messy heavy noise, 1k rows",1,k-NN,3.977155943066613,261
+D,"D · Wide + messy heavy noise, 1k rows",1,Decision Tree,5.175724397841683,261
+D,"D · Wide + messy heavy noise, 1k rows",1,Random Forest (100),2.9295500408917987,261
+D,"D · Wide + messy heavy noise, 1k rows",1,Random Forest (20),3.1190654844474994,261
+D,"D · Wide + messy heavy noise, 1k rows",1,SVM,3.171393435319988,261
+D,"D · Wide + messy heavy noise, 1k rows",1,Neural net,4.06075990322576,261
+D,"D · Wide + messy heavy noise, 1k rows",1,XGBoost,2.617527357826819,261
+D,"D · Wide + messy heavy noise, 1k rows",2,Linear Regression,4.641438979472344,261
+D,"D · Wide + messy heavy noise, 1k rows",2,k-NN,3.705066923067907,261
+D,"D · Wide + messy heavy noise, 1k rows",2,Decision Tree,4.6752457270103145,261
+D,"D · Wide + messy heavy noise, 1k rows",2,Random Forest (100),2.7704363982401454,261
+D,"D · Wide + messy heavy noise, 1k rows",2,Random Forest (20),2.967366630481,261
+D,"D · Wide + messy heavy noise, 1k rows",2,SVM,3.0889253892589066,261
+D,"D · Wide + messy heavy noise, 1k rows",2,Neural net,3.7128499678701155,261
+D,"D · Wide + messy heavy noise, 1k rows",2,XGBoost,2.5213216292678977,261
+D,"D · Wide + messy heavy noise, 1k rows",3,Linear Regression,5.079871073867103,261
+D,"D · Wide + messy heavy noise, 1k rows",3,k-NN,4.283223905492525,261
+D,"D · Wide + messy heavy noise, 1k rows",3,Decision Tree,5.316929050778895,261
+D,"D · Wide + messy heavy noise, 1k rows",3,Random Forest (100),3.1504915651141636,261
+D,"D · Wide + messy heavy noise, 1k rows",3,Random Forest (20),3.39269471981242,261
+D,"D · Wide + messy heavy noise, 1k rows",3,SVM,3.2727285871730594,261
+D,"D · Wide + messy heavy noise, 1k rows",3,Neural net,4.1918489301039,261
+D,"D · Wide + messy heavy noise, 1k rows",3,XGBoost,3.0009606822036945,261

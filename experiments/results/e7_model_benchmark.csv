@@ -1,0 +1,14 @@
+task,model,MAE_ms,R2,train_s,predict_one_ms,accuracy,macro_F1
+burst,Linear Regression,16.4,0.355,0.02,6.8,,
+burst,k-NN (k=7),17.89,0.246,0.02,7.2,,
+burst,Decision Tree (depth 8),17.76,0.191,0.03,6.6,,
+burst,Random Forest (deployed),17.9,0.241,0.33,10.8,,
+burst,SVM / SVR (RBF),15.65,0.319,1.02,6.8,,
+burst,"Neural net (64,32)",16.52,0.343,8.26,6.4,,
+burst,XGBoost,17.5,0.25,1.09,7.4,,
+priority,k-NN (k=7),,,0.02,9.1,0.641,0.625
+priority,Decision Tree (depth 8),,,0.03,5.8,0.612,0.59
+priority,Random Forest (deployed),,,0.2,10.8,0.64,0.617
+priority,SVM / SVC (RBF),,,0.75,7.2,0.676,0.653
+priority,"Neural net (64,32)",,,13.15,6.4,0.656,0.652
+priority,XGBoost,,,0.89,7.5,0.659,0.636

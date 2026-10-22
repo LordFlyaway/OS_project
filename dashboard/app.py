@@ -49,6 +49,15 @@ def get_predictor() -> Predictor:
     return _predictor
 
 
+def _model_meta() -> dict:
+    """What the saved models were trained on (written by train_models)."""
+    try:
+        with open(os.path.join(ROOT, "outputs", "models", "meta.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
 def _clamp(value, lo, hi, cast):
     try:
         return max(lo, min(hi, cast(value)))
@@ -138,6 +147,7 @@ def simulate():
             "computed_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "compute_ms": round((time.perf_counter() - started) * 1000, 1),
             "model_trained": model_trained,
+            "model_noise": _model_meta().get("noise"),
         },
         "params": {"n": n, "seed": seed, "quantum": quantum, "aging": aging},
         "processes": [{
@@ -176,6 +186,45 @@ def last_run():
         return jsonify({**defaults, **saved})
     except (OSError, ValueError):
         return jsonify(defaults)
+
+
+def _read_csv(name: str):
+    path = os.path.join(RESULTS_DIR, name)
+    return pd.read_csv(path) if os.path.exists(path) else None
+
+
+def _rows(df):
+    df = df.astype(object)
+    return df.where(df.notna(), None).to_dict(orient="records")
+
+
+@app.get("/api/model-graphs")
+def model_graphs():
+    """Data behind the Graphs tab: model comparison, scalability, tree-count reliability, regression."""
+    files = {
+        "cost": "e8_accuracy_vs_cost.csv", "stability": "e8_stability.csv", "nonlinear": "e8_nonlinear.csv",
+        "scheduler": "e8_scheduler_waiting.csv", "reliability": "e9_tree_reliability.csv",
+        "tree_scheduler": "e9_tree_scheduler.csv", "tree_cost": "e9_tree_cost.csv",
+        "seed_context": "e9_seed_context.csv", "scalability": "e10_scalability.csv",
+    }
+    frames = {k: _read_csv(v) for k, v in files.items()}
+    reg_path = os.path.join(RESULTS_DIR, "e11_regression.json")
+    missing = [files[k] for k, v in frames.items() if v is None]
+    if not os.path.exists(reg_path):
+        missing.append("e11_regression.json")
+    if missing:
+        return jsonify({"available": False, "missing": missing})
+
+    nl = frames["nonlinear"].rename(columns={frames["nonlinear"].columns[0]: "model"})
+    sch = frames["scheduler"].rename(columns={frames["scheduler"].columns[0]: "name"})
+    out = {k: _rows(v) for k, v in frames.items() if k not in ("stability", "nonlinear", "scheduler")}
+    out["nonlinear"] = _rows(nl)
+    out["scheduler"] = _rows(sch)
+    out["stability"] = {c: [float(x) for x in frames["stability"][c]] for c in frames["stability"].columns}
+    with open(reg_path, encoding="utf-8") as f:
+        out["regression"] = json.load(f)
+    out["available"] = True
+    return jsonify(out)
 
 
 @app.get("/api/experiments")

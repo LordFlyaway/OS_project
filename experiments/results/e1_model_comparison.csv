@@ -1,7 +1,7 @@
 task,model,MAE,R2,accuracy,macro_F1
-burst (regression),Linear Regression,2.437,0.968,,
-burst (regression),Decision Tree,3.202,0.946,,
-burst (regression),Random Forest,2.688,0.961,,
-priority (classification),k-Nearest Neighbours,,,0.902,0.873
-priority (classification),Decision Tree,,,0.901,0.88
-priority (classification),Random Forest,,,0.92,0.899
+burst (regression),Linear Regression,16.404,0.355,,
+burst (regression),Decision Tree,17.763,0.191,,
+burst (regression),Random Forest,17.899,0.241,,
+priority (classification),k-Nearest Neighbours,,,0.641,0.625
+priority (classification),Decision Tree,,,0.612,0.59
+priority (classification),Random Forest,,,0.64,0.617

@@ -187,6 +187,25 @@ svg .axis{stroke:var(--line-2)}svg .grid{stroke:var(--line)}
 .toast.on{display:block}
 [hidden]{display:none!important}
 
+
+/* ---------- graphs tab ---------- */
+.read{font-size:12.5px;color:var(--muted);margin:2px 0 10px;line-height:1.55}
+.read b{color:var(--text);font-weight:600}
+.legend span{display:inline-flex;align-items:center;gap:6px;font:12px var(--font-mono);color:var(--muted)}
+.sect{font:600 12px var(--font-display);letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin:8px 0 -6px}
+.cols2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.weights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 18px;margin:8px 0 6px}
+.weights .ctl{margin-bottom:8px}
+.rank{display:grid;grid-template-columns:132px minmax(0,1fr) 44px;gap:10px;align-items:center;padding:5px 0}
+.rank .nm{font:500 13px var(--font-display);letter-spacing:.02em}
+.rank.rf .nm{color:var(--amber)}
+.rank .track{height:12px;border-radius:6px;background:var(--panel-2);position:relative;overflow:hidden}
+.rank .track i{position:absolute;inset:0 auto 0 0;border-radius:6px;background:#3a4a70;transition:width .35s cubic-bezier(.2,.8,.2,1)}
+.rank.rf .track i{background:var(--amber)}
+.rank .val{font:13px var(--font-mono);text-align:right}
+select.speed.wide{min-width:170px}
+@media (max-width:1100px){.cols2,.cols3{grid-template-columns:1fr}.weights{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:1100px){.charts{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
 @media (max-width:760px){.cand{grid-template-columns:44px minmax(0,1fr)}.formula{grid-column:1/-1;text-align:left;max-width:none}}
 @media (max-width:980px){
@@ -210,6 +229,7 @@ svg .axis{stroke:var(--line-2)}svg .grid{stroke:var(--line)}
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button class="tab" role="tab" id="tab-sim" aria-selected="true" aria-controls="view-sim">Simulator</button>
     <button class="tab" role="tab" id="tab-res" aria-selected="false" aria-controls="view-res">Results</button>
+    <button class="tab" role="tab" id="tab-gr" aria-selected="false" aria-controls="view-gr">Graphs</button>
   </nav>
 </header>
 
@@ -321,6 +341,11 @@ svg .axis{stroke:var(--line-2)}svg .grid{stroke:var(--line)}
 <!-- ============================== RESULTS ============================== -->
 <div class="shell" id="view-res" role="tabpanel" aria-labelledby="tab-res" hidden style="grid-template-columns:minmax(0,1fr)">
   <main class="main" id="res-main"><div class="card pad empty">Loading results…</div></main>
+</div>
+
+<!-- ============================== GRAPHS ============================== -->
+<div class="shell" id="view-gr" role="tabpanel" aria-labelledby="tab-gr" hidden style="grid-template-columns:minmax(0,1fr)">
+  <main class="main" id="gr-main"><div class="card pad empty">Loading graphs…</div></main>
 </div>
 
 <div class="toast" id="toast" role="alert"></div>
@@ -683,7 +708,7 @@ function renderLive(sv){
   if(!sv){ $("#live-note").textContent=""; return; }
   const at=new Date(sv.computed_at).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
   const m=sv.model_trained?new Date(sv.model_trained).toLocaleString([], {dateStyle:"medium", timeStyle:"short"}):"unknown";
-  $("#live-note").textContent=`Computed live by the server at ${at} in ${sv.compute_ms} ms · predictions from the Random Forest trained ${m}`;
+  $("#live-note").textContent=`Computed live by the server at ${at} in ${sv.compute_ms} ms · predictions from the Random Forest trained ${m}${sv.model_noise?` on ${sv.model_noise}-noise data`:""}`;
 }
 function syncControls(p){
   $("#n").value=p.n; $("#n-o").textContent=p.n;
@@ -725,14 +750,15 @@ addEventListener("keydown",e=>{
 });
 
 /* ============================== tabs ============================== */
-let resLoaded=false;
+let resLoaded=false, grLoaded=false;
 function showTab(which){
-  const sim=which==="sim";
-  $("#view-sim").hidden=!sim; $("#view-res").hidden=sim;
-  $("#tab-sim").setAttribute("aria-selected",sim); $("#tab-res").setAttribute("aria-selected",!sim);
-  if(sim) resize(); else if(!resLoaded) loadResults();
+  const views={sim:"#view-sim",res:"#view-res",gr:"#view-gr"}, tabs={sim:"#tab-sim",res:"#tab-res",gr:"#tab-gr"};
+  for(const k in views){ $(views[k]).hidden=(k!==which); $(tabs[k]).setAttribute("aria-selected",k===which); }
+  if(which==="sim") resize();
+  else if(which==="res" && !resLoaded) loadResults();
+  else if(which==="gr" && !grLoaded) loadGraphs();
 }
-$("#tab-sim").onclick=()=>showTab("sim"); $("#tab-res").onclick=()=>showTab("res");
+$("#tab-sim").onclick=()=>showTab("sim"); $("#tab-res").onclick=()=>showTab("res"); $("#tab-gr").onclick=()=>showTab("gr");
 
 /* ============================== results tab ============================== */
 async function loadResults(){
@@ -860,6 +886,288 @@ function renderResults(r){
     </section>
     <p class="note">All data in this project is synthetic, generated from a documented formula. These results show that the approach and pipeline work, not how the scheduler would perform on real workloads.</p>`;
 }
+
+/* ============================== graphs tab ============================== */
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const MODEL_COLORS = {"Random Forest":"#ffb224","Linear Regression":"#6ea8ff","k-NN":"#a58bff","Decision Tree":"#5fd6a0",
+  "SVM":"#ff8ab3","Neural net":"#7ee0e8","XGBoost":"#c3c9d8"};
+const mc = n => MODEL_COLORS[n] || "#8fa3d6";
+const RF = "Random Forest";
+
+function stepFor(raw){ const m=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/m; return (n<1.5?1:n<3?2:n<7?5:10)*m; }
+function linTicks(lo,hi,n=5){ const st=stepFor((hi-lo)/n), t=[]; for(let v=Math.ceil(lo/st)*st; v<=hi+1e-9; v+=st) t.push(+v.toFixed(10)); return t; }
+function logTicks(lo,hi){ // lo/hi are log10 values
+  const t=[]; for(let k=Math.floor(lo); k<=Math.ceil(hi); k++) for(const m of [1,2,5]){ const v=m*Math.pow(10,k), l=Math.log10(v); if(l>=lo-1e-9&&l<=hi+1e-9) t.push(v); }
+  return t.length>=2?t:[Math.pow(10,lo),Math.pow(10,hi)];
+}
+function tk(v){ if(v>=10000) return (v/1000)+"k"; if(v>=1000) return String(+(v/1000).toFixed(1))+"k"; if(v>=100) return v.toFixed(0); if(v>=10) return String(+v.toFixed(1)); return String(+v.toFixed(2)); }
+const mean = a => a.reduce((x,y)=>x+y,0)/a.length;
+const stdev = a => { const m=mean(a); return Math.sqrt(mean(a.map(v=>(v-m)**2))); };
+const byKey = (arr,key) => Object.fromEntries(arr.map(r=>[r[key],r]));
+const legendHTML = names => `<div class="legend">${names.map(n=>`<span><i style="background:${mc(n)}"></i>${esc(n)}</span>`).join("")}</div>`;
+const card = (title,note,body,cls="") => `<section class="card pad ${cls}"><div class="chart-t">${title}</div><p class="read">${note}</p>${body}</section>`;
+
+/* generic line / marker plot with optional log axes */
+function plotXY(o){
+  const W=o.w||440, H=o.h||270, m={l:54,r:14,t:12,b:46}, iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const fx=o.xlog?Math.log10:v=>v, fy=o.ylog?Math.log10:v=>v;
+  const pts=o.series.flatMap(s=>s.points);
+  const xs=pts.map(p=>fx(p[0])), ysAll=pts.map(p=>fy(p[1])).concat((o.refs||[]).map(r=>fy(r.y)));
+  let x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ysAll), y1=Math.max(...ysAll);
+  const pad=(y1-y0||1)*.1; y0-=pad; y1+=pad;
+  const X=v=>m.l+(fx(v)-x0)/((x1-x0)||1)*iw, Y=v=>m.t+ih-(fy(v)-y0)/((y1-y0)||1)*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||o.ylabel)}">`;
+  (o.ylog?logTicks(y0,y1):linTicks(y0,y1)).forEach(v=>{ const y=Y(v); if(y<m.t-1||y>m.t+ih+1) return;
+    s+=`<line class="grid" x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}"/><text x="${m.l-7}" y="${y+3}" text-anchor="end">${tk(v)}</text>`; });
+  (o.xticks||[]).forEach(v=>{ const x=X(v); s+=`<line class="grid" x1="${x}" x2="${x}" y1="${m.t}" y2="${m.t+ih}" opacity=".5"/><text x="${x}" y="${H-m.b+15}" text-anchor="middle">${tk(v)}</text>`; });
+  s+=`<text x="${m.l+iw/2}" y="${H-6}" text-anchor="middle">${esc(o.xlabel||"")}</text>`;
+  s+=`<text transform="translate(12 ${m.t+ih/2}) rotate(-90)" text-anchor="middle">${esc(o.ylabel||"")}</text>`;
+  (o.refs||[]).forEach(r=>{ const y=Y(r.y); s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="${r.c}" stroke-dasharray="4 4" opacity=".85"/><text x="${W-m.r}" y="${y-5}" text-anchor="end" style="fill:${r.c}">${esc(r.label)}</text>`; });
+  const order=[...o.series].sort((a,b)=>(a.name===RF)-(b.name===RF));
+  order.forEach(se=>{
+    const w=se.name===RF?3:1.8, op=se.name===RF?1:.85;
+    s+=`<polyline points="${se.points.map(p=>X(p[0])+","+Y(p[1])).join(" ")}" fill="none" stroke="${se.color}" stroke-width="${w}" stroke-linejoin="round" ${se.dash?'stroke-dasharray="5 4"':""} opacity="${op}"/>`;
+    se.points.forEach(p=>{ s+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="${se.name===RF?4:3}" fill="${se.color}" stroke="var(--panel)" stroke-width="1.5"><title>${esc(se.name)}: ${tk(p[1])} at ${tk(p[0])}</title></circle>`; });
+  });
+  return s+`<line class="axis" x1="${m.l}" x2="${W-m.r}" y1="${m.t+ih}" y2="${m.t+ih}"/></svg>`;
+}
+
+/* bubble scatter: accuracy against cost */
+function bubbleChart(items){
+  const W=460, H=300, m={l:54,r:18,t:14,b:46}, iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const lx=items.map(i=>Math.log10(i.x)), ly=items.map(i=>i.y);
+  let x0=Math.min(...lx)-.12, x1=Math.max(...lx)+.18, y0=Math.min(...ly), y1=Math.max(...ly); const pad=(y1-y0)*.18; y0-=pad; y1+=pad;
+  const X=v=>m.l+(Math.log10(v)-x0)/(x1-x0)*iw, Y=v=>m.t+ih-(v-y0)/(y1-y0)*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Error against prediction time, bubble size is model size">`;
+  linTicks(y0,y1).forEach(v=>{ const y=Y(v); s+=`<line class="grid" x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}"/><text x="${m.l-7}" y="${y+3}" text-anchor="end">${tk(v)}</text>`; });
+  logTicks(x0,x1).forEach(v=>{ const x=X(v); if(x<m.l||x>W-m.r) return; s+=`<line class="grid" x1="${x}" x2="${x}" y1="${m.t}" y2="${m.t+ih}" opacity=".5"/><text x="${x}" y="${H-m.b+15}" text-anchor="middle">${tk(v)}</text>`; });
+  s+=`<text x="${m.l+iw/2}" y="${H-6}" text-anchor="middle">time to predict one process (ms, log scale)  →  slower</text>`;
+  s+=`<text transform="translate(12 ${m.t+ih/2}) rotate(-90)" text-anchor="middle">error, MAE (ms)  →  worse</text>`;
+  const smax=Math.max(...items.map(i=>i.size));
+  [...items].sort((a,b)=>(a.label===RF)-(b.label===RF)).forEach(i=>{
+    const r=6+Math.sqrt(i.size/smax)*14, cx=X(i.x), cy=Y(i.y);
+    s+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${mc(i.label)}" opacity="${i.label===RF?1:.82}" stroke="var(--ink)" stroke-width="1.5"><title>${esc(i.label)}: ${fmt(i.y,2)} ms error, ${fmt(i.x,1)} ms to predict, ${fmt(i.size,0)} KB</title></circle>`;
+    s+=`<text x="${cx+r+4}" y="${cy+3}" style="fill:${i.label===RF?"var(--amber)":"var(--text)"};font-size:10.5px">${esc(i.label)}</text>`;
+  });
+  return s+`<line class="axis" x1="${m.l}" x2="${W-m.r}" y1="${m.t+ih}" y2="${m.t+ih}"/></svg>`;
+}
+
+/* box plot: one box per model */
+function boxChart(map){
+  const names=Object.keys(map), W=460, H=290, m={l:46,r:12,t:14,b:56}, iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const all=names.flatMap(n=>map[n]); let y0=Math.min(...all), y1=Math.max(...all); const pad=(y1-y0)*.1; y0-=pad; y1+=pad;
+  const Y=v=>m.t+ih-(v-y0)/(y1-y0)*ih, bw=iw/names.length;
+  const q=(a,p)=>{ const b=[...a].sort((x,y)=>x-y), i=(b.length-1)*p, lo=Math.floor(i); return b[lo]+(b[Math.ceil(i)]-b[lo])*(i-lo); };
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Test error across ten train/test splits, per model">`;
+  linTicks(y0,y1).forEach(v=>{ const y=Y(v); s+=`<line class="grid" x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}"/><text x="${m.l-7}" y="${y+3}" text-anchor="end">${tk(v)}</text>`; });
+  names.forEach((n,i)=>{ const a=map[n], cx=m.l+bw*(i+.5), q1=q(a,.25), md=q(a,.5), q3=q(a,.75), lo=Math.min(...a), hi=Math.max(...a), bwid=bw*.5;
+    s+=`<line x1="${cx}" x2="${cx}" y1="${Y(lo)}" y2="${Y(hi)}" stroke="${mc(n)}" stroke-width="1.5"/>`;
+    s+=`<rect x="${cx-bwid/2}" y="${Y(q3)}" width="${bwid}" height="${Math.max(2,Y(q1)-Y(q3))}" rx="3" fill="${mc(n)}" opacity="${n===RF?1:.8}"><title>${esc(n)}: median ${fmt(md,2)} ms, range ${fmt(lo,2)}–${fmt(hi,2)}</title></rect>`;
+    s+=`<line x1="${cx-bwid/2}" x2="${cx+bwid/2}" y1="${Y(md)}" y2="${Y(md)}" stroke="var(--ink)" stroke-width="2"/>`;
+    s+=`<text x="${cx}" y="${H-m.b+15}" text-anchor="middle" style="${n===RF?"fill:var(--amber)":""};font-size:9.5px">${esc(n.split(" ")[0])}</text>`;
+    if(n.includes(" ")) s+=`<text x="${cx}" y="${H-m.b+27}" text-anchor="middle" style="${n===RF?"fill:var(--amber)":""};font-size:9.5px">${esc(n.split(" ").slice(1).join(" "))}</text>`; });
+  s+=`<text transform="translate(12 ${m.t+ih/2}) rotate(-90)" text-anchor="middle">test error, MAE (ms)</text>`;
+  return s+`<line class="axis" x1="${m.l}" x2="${W-m.r}" y1="${m.t+ih}" y2="${m.t+ih}"/></svg>`;
+}
+
+/* horizontal bars with a labelled start value */
+function hbarChart(items,{start=0,unit="",d=1}={}){
+  const W=460, rowH=30, H=items.length*rowH+34, m={l:128,r:56,t:8,b:26}, iw=W-m.l-m.r;
+  const hi=Math.max(...items.map(i=>i.v)); const lo=start;
+  const X=v=>m.l+(v-lo)/((hi-lo)||1)*iw;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bar chart">`;
+  items.forEach((it,i)=>{ const y=m.t+i*rowH, w=Math.max(2,X(it.v)-m.l);
+    s+=`<text x="${m.l-8}" y="${y+rowH/2+1}" text-anchor="end" style="fill:${it.hl?"var(--amber)":"var(--text)"};font-size:11px">${esc(it.label)}</text>`;
+    s+=`<rect x="${m.l}" y="${y+4}" width="${w}" height="${rowH-10}" rx="4" fill="${it.color||mc(it.label)}"><title>${esc(it.label)}: ${fmt(it.v,d)}${unit}</title></rect>`;
+    s+=`<text x="${m.l+w+6}" y="${y+rowH/2+1}" style="fill:var(--text)">${fmt(it.v,d)}</text>`; });
+  if(start>0) s+=`<text x="${m.l}" y="${H-6}">axis starts at ${tk(start)}</text>`;
+  return s+`</svg>`;
+}
+
+/* standardised regression coefficients with bootstrap confidence intervals */
+function coefChart(factors){
+  const W=420, rowH=44, H=factors.length*rowH+34, m={l:104,r:16,t:8,b:26}, iw=W-m.l-m.r;
+  const short={"trees (log)":"Trees","training rows (log)":"Training rows","target noise":"Target noise"};
+  const ext=Math.max(...factors.flatMap(f=>[Math.abs(f.ci_low),Math.abs(f.ci_high),Math.abs(f.coef)]),.1)*1.15;
+  const X=v=>m.l+(v+ext)/(2*ext)*iw;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Standardised regression coefficients">`;
+  linTicks(-ext,ext,4).forEach(v=>{ s+=`<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${m.t}" y2="${H-m.b}"/><text x="${X(v)}" y="${H-8}" text-anchor="middle">${fmt(v,1)}</text>`; });
+  s+=`<line x1="${X(0)}" x2="${X(0)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--muted)"/>`;
+  factors.forEach((f,i)=>{ const y=m.t+i*rowH+rowH/2, pos=f.coef>=0;
+    s+=`<text x="${m.l-8}" y="${y+3}" text-anchor="end" style="fill:var(--text);font-size:11px">${esc(short[f.name]||f.name)}</text>`;
+    s+=`<rect x="${Math.min(X(0),X(f.coef))}" y="${y-8}" width="${Math.abs(X(f.coef)-X(0))}" height="16" rx="3" fill="${pos?"#ff7a7a":"#5fd6a0"}" opacity=".9"><title>${esc(f.name)}: ${fmt(f.coef,2)} (95% CI ${fmt(f.ci_low,2)} to ${fmt(f.ci_high,2)})</title></rect>`;
+    s+=`<line x1="${X(f.ci_low)}" x2="${X(f.ci_high)}" y1="${y}" y2="${y}" stroke="var(--text)" stroke-width="1.5"/><line x1="${X(f.ci_low)}" x2="${X(f.ci_low)}" y1="${y-5}" y2="${y+5}" stroke="var(--text)"/><line x1="${X(f.ci_high)}" x2="${X(f.ci_high)}" y1="${y-5}" y2="${y+5}" stroke="var(--text)"/>`; });
+  return s+`</svg>`;
+}
+
+function fitChart(actual,pred){
+  const W=300, H=250, m={l:40,r:12,t:12,b:36}, iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const lo=Math.min(...actual,...pred), hi=Math.max(...actual,...pred), X=v=>m.l+(v-lo)/(hi-lo)*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Regression fit: model prediction against actual">`;
+  linTicks(lo,hi,4).forEach(v=>{ s+=`<line class="grid" x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l-6}" y="${Y(v)+3}" text-anchor="end">${fmt(v,1)}</text>`; });
+  s+=`<line x1="${X(lo)}" y1="${Y(lo)}" x2="${X(hi)}" y2="${Y(hi)}" stroke="var(--amber)" stroke-dasharray="4 4"/>`;
+  actual.forEach((a,i)=>{ s+=`<circle cx="${X(a)}" cy="${Y(pred[i])}" r="3" fill="#8fa3d6" opacity=".75"/>`; });
+  s+=`<text x="${m.l+iw/2}" y="${H-6}" text-anchor="middle">actual (standardised)</text><text transform="translate(11 ${m.t+ih/2}) rotate(-90)" text-anchor="middle">fitted</text>`;
+  return s+`</svg>`;
+}
+
+function radarChart(labels,series){
+  const W=420, H=380, cx=W/2, cy=H/2+4, R=118, N=labels.length;
+  const P=(i,r)=>{ const a=-Math.PI/2+i*2*Math.PI/N; return [cx+Math.cos(a)*R*r, cy+Math.sin(a)*R*r]; };
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Radar chart of factor scores">`;
+  [.25,.5,.75,1].forEach(r=>{ s+=`<polygon points="${labels.map((_,i)=>P(i,r).join(",")).join(" ")}" fill="none" stroke="var(--line-2)"/>`; });
+  labels.forEach((l,i)=>{ const [x,y]=P(i,1), [lx,ly]=P(i,1.2); s+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)"/>`;
+    s+=`<text x="${lx}" y="${ly+3}" text-anchor="${lx<cx-8?"end":lx>cx+8?"start":"middle"}" style="font-size:10px;fill:var(--text)">${esc(l)}</text>`; });
+  series.forEach(se=>{ s+=`<polygon points="${se.vals.map((v,i)=>P(i,Math.max(v,2)/100).join(",")).join(" ")}" fill="${se.color}" fill-opacity=".16" stroke="${se.color}" stroke-width="2.2"/>`; });
+  return s+`</svg>`;
+}
+
+const FACTORS = [
+  {key:"acc",   label:"Accuracy",              log:false},
+  {key:"nl",    label:"Non-linear data",       log:false},
+  {key:"small", label:"Small-data accuracy",   log:false},
+  {key:"split", label:"Stable across splits",  log:false},
+  {key:"seed",  label:"Run-to-run consistency",log:false},
+  {key:"train", label:"Training scalability",  log:true},
+  {key:"speed", label:"Prediction speed",      log:true},
+  {key:"size",  label:"Small model size",      log:true},
+  {key:"sched", label:"Scheduler outcome",     log:false},
+];
+
+function scorecardData(G){
+  const cost=byKey(G.cost,"model"), nl=byKey(G.nonlinear,"model"), seed=byKey(G.seed_context,"model");
+  const sch=Object.fromEntries(G.scheduler.map(r=>[r.name,r.avg_waiting]));
+  const sc=G.scalability, minRows=Math.min(...sc.map(r=>r.train_rows)), maxRows=Math.max(...sc.map(r=>r.train_rows));
+  const at=(m,n)=>sc.find(r=>r.model===m&&r.train_rows===n);
+  const models=G.cost.map(r=>r.model);
+  const raw={ acc:m=>cost[m].MAE, nl:m=>nl[m].MAE, small:m=>at(m,minRows).MAE, split:m=>stdev(G.stability[m]),
+              seed:m=>seed[m].mae_std_across_seeds, train:m=>at(m,maxRows).train_s, speed:m=>cost[m].latency_ms,
+              size:m=>cost[m].size_kb, sched:m=>sch[m] };
+  const scores={}, rawVals={};
+  FACTORS.forEach(f=>{
+    const v=models.map(m=>raw[f.key](m)), t=v.map(x=>f.log?Math.log10(Math.max(x,1e-6)):x), best=Math.min(...t), worst=Math.max(...t);
+    models.forEach((m,i)=>{ (scores[m]=scores[m]||{})[f.key]=worst===best?100:100*(worst-t[i])/(worst-best); (rawVals[m]=rawVals[m]||{})[f.key]=v[i]; });
+  });
+  return {models,scores,rawVals,minRows,maxRows};
+}
+
+function renderScorecard(G){
+  const D=scorecardData(G), W=Object.fromEntries(FACTORS.map(f=>[f.key,1]));
+  const wrap=$("#scorecard"), others=D.models.filter(m=>m!==RF);
+  wrap.innerHTML=`
+    <div class="weights">${FACTORS.map(f=>`<div class="ctl"><div class="ctl-row"><label class="label" for="w-${f.key}">${f.label}</label><output id="wo-${f.key}" class="mono">1</output></div>
+      <input type="range" id="w-${f.key}" min="0" max="3" step="1" value="1"></div>`).join("")}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 12px"><button class="btn" id="w-reset">Reset to equal weights</button>
+      <button class="btn" id="w-acc">Accuracy only</button><button class="btn" id="w-robust">Robustness focus</button><button class="btn" id="w-light">Lightweight focus</button></div>
+    <div class="cols2"><div><div class="label" style="margin-bottom:6px">Overall score (0–100)</div><div id="rank"></div><p class="read" id="rankline" style="margin-top:8px"></p></div>
+    <div><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px"><div class="label">Random Forest against</div>
+      <select class="speed wide" id="cmp">${others.map(m=>`<option>${m}</option>`).join("")}</select></div><div id="radar"></div></div></div>`;
+  const draw=()=>{
+    const tot=Object.values(W).reduce((a,b)=>a+b,0)||1;
+    const overall=D.models.map(m=>({m,v:FACTORS.reduce((a,f)=>a+W[f.key]*D.scores[m][f.key],0)/tot})).sort((a,b)=>b.v-a.v);
+    $("#rank").innerHTML=overall.map((r,i)=>`<div class="rank ${r.m===RF?"rf":""}"><div class="nm">${i+1}. ${esc(r.m)}</div><div class="track"><i style="width:${r.v}%"></i></div><div class="val">${fmt(r.v,0)}</div></div>`).join("");
+    const rk=overall.findIndex(r=>r.m===RF)+1;
+    $("#rankline").textContent=`With these weights Random Forest ranks ${rk} of ${overall.length}.`;
+    const c=$("#cmp").value;
+    $("#radar").innerHTML=radarChart(FACTORS.map(f=>f.label),[{name:c,color:mc(c),vals:FACTORS.map(f=>D.scores[c][f.key])},{name:RF,color:mc(RF),vals:FACTORS.map(f=>D.scores[RF][f.key])}])
+      +`<div class="legend" style="justify-content:center"><span><i style="background:${mc(RF)}"></i>${RF}</span><span><i style="background:${mc(c)}"></i>${esc(c)}</span></div>`;
+  };
+  const setW=obj=>{ FACTORS.forEach(f=>{ W[f.key]=obj[f.key]??0; $("#w-"+f.key).value=W[f.key]; $("#wo-"+f.key).textContent=W[f.key]; }); draw(); };
+  FACTORS.forEach(f=>$("#w-"+f.key).oninput=e=>{ W[f.key]=+e.target.value; $("#wo-"+f.key).textContent=e.target.value; draw(); });
+  $("#cmp").onchange=draw;
+  $("#w-reset").onclick=()=>setW(Object.fromEntries(FACTORS.map(f=>[f.key,1])));
+  $("#w-acc").onclick=()=>setW({acc:3,small:1});
+  $("#w-robust").onclick=()=>setW({nl:3,split:2,seed:2,small:1,acc:1});
+  $("#w-light").onclick=()=>setW({speed:3,size:3,train:2,acc:1});
+  draw();
+}
+
+async function loadGraphs(){
+  const el=$("#gr-main");
+  try{
+    const G=await (await fetch("/api/model-graphs")).json();
+    if(!G.available){ el.innerHTML=`<div class="card pad empty">Some experiment results are missing (${esc((G.missing||[]).join(", "))}). Run the experiment scripts in <span class="mono">experiments/</span> once, then reload this page.</div>`; return; }
+    grLoaded=true; renderGraphs(G);
+  }catch(e){ console.error(e); el.innerHTML='<div class="card pad empty">Couldn’t load the graphs. Is the server still running?</div>'; }
+}
+
+function renderGraphs(G){
+  const cost=byKey(G.cost,"model"), names=G.cost.map(r=>r.model), rfc=cost[RF];
+  const nl=G.nonlinear.map(r=>({label:r.model,v:r.MAE})).sort((a,b)=>a.v-b.v);
+  const sched=G.scheduler.filter(r=>names.includes(r.name)).map(r=>({label:r.name,v:r.avg_waiting}));
+  const ref=Object.fromEntries(G.scheduler.filter(r=>!names.includes(r.name)).map(r=>[r.name,r.avg_waiting]));
+  const schedItems=[...sched.sort((a,b)=>a.v-b.v).map(r=>({...r,hl:r.label===RF})),{label:"SJF oracle",v:ref["SJF oracle"],color:"#5fd6a0"},{label:"FCFS",v:ref["FCFS"],color:"#ff7a7a"}];
+  const lo=Math.floor(Math.min(...schedItems.map(i=>i.v))-10);
+
+  // scalability
+  const sc=G.scalability, rowsList=[...new Set(sc.map(r=>r.train_rows))].sort((a,b)=>a-b), minR=rowsList[0], maxR=rowsList[rowsList.length-1];
+  const scSeries=key=>names.map(n=>({name:n,color:mc(n),points:rowsList.map(r=>[r,sc.find(x=>x.model===n&&x.train_rows===r)[key]])}));
+  const growth=names.map(n=>({n,g:sc.find(x=>x.model===n&&x.train_rows===maxR).train_s/Math.max(sc.find(x=>x.model===n&&x.train_rows===minR).train_s,1e-3)})).sort((a,b)=>b.g-a.g);
+  const rfS=sc.filter(r=>r.model===RF);
+
+  // trees
+  const R=G.reliability, trees=[...new Set(R.map(r=>r.trees))].sort((a,b)=>a-b);
+  const dsNames=[...new Set(R.map(r=>r.dataset))], dsColor={"original":"#ffb224","non-linear":"#5fd6a0","non-linear + extra noise":"#ff7a7a","small data (500 rows)":"#8fa3ff"};
+  const dsSeries=key=>dsNames.map(d=>({name:d,color:dsColor[d]||"#8fa3d6",points:R.filter(r=>r.dataset===d).map(r=>[r.trees,r[key]])}));
+  const dsLegend=`<div class="legend">${dsNames.map(d=>`<span><i style="background:${dsColor[d]||"#8fa3d6"}"></i>${esc(d)}</span>`).join("")}</div>`;
+  const orig=R.filter(r=>r.dataset==="original"), o1=orig.find(r=>r.trees===trees[0]), o20=orig.find(r=>r.trees===20), oN=orig[orig.length-1];
+  const tc=G.tree_cost;
+
+  // regression
+  const reg=G.regression, cons=reg.consistency, acc=reg.accuracy;
+  const top=[...cons.factors].sort((a,b)=>Math.abs(b.coef)-Math.abs(a.coef))[0];
+
+  const rows=(arr)=>arr.join("");
+  $("#gr-main").innerHTML=`
+    <section class="card hero">
+      <div class="eyebrow">Graphs</div>
+      <h1 class="h2">Why a Random Forest, and how many trees?</h1>
+      <p class="sub">A Random Forest is a steady, low-tuning model that copes with non-linear data, and adding trees makes its predictions more consistent. It is not the fastest or the most accurate model on this data, so every graph below shows the trade-offs in the open. All data is synthetic.</p>
+    </section>
+
+    <div class="sect">1 · Which model?</div>
+    <div class="cols2">
+      ${card("Accuracy against cost",`Lower-left is best; bubble size is file size. <b>Random Forest:</b> ${fmt(rfc.MAE,2)} ms error, ${fmt(rfc.latency_ms,1)} ms per prediction, ${fmt(rfc.size_kb,0)} KB.`,
+        bubbleChart(G.cost.map(r=>({label:r.model,x:r.latency_ms,y:r.MAE,size:r.size_kb}))))}
+      ${card("Stability across data splits",`Ten random train/test splits per model. A short box means the error stays about the same whichever data the model saw.`,boxChart(G.stability))}
+      ${card("Stress test: a non-linear burst",`Same models on a burst formula with thresholds and interactions. A straight-line model breaks; tree models and the neural net cope. <b>Lower is better.</b>`,hbarChart(nl.map(r=>({...r,hl:r.label===RF})),{unit:" ms",d:2}))}
+      ${card("Inside the scheduler",`Each model drives shortest-predicted-job-first on 100 random batches. The results are almost identical, so on this data the choice barely moves the outcome. <b>Lower is better.</b>`,hbarChart(schedItems,{start:lo,unit:" ms",d:1}))}
+    </div>
+
+    <div class="sect">2 · Scalability</div>
+    <div class="cols3">
+      ${card("Error as data grows",`Training rows from ${tk(minR)} to ${tk(maxR)}. <b>Random Forest</b> error goes from ${fmt(rfS[0].MAE,2)} to ${fmt(rfS[rfS.length-1].MAE,2)} ms.`,
+        plotXY({series:scSeries("MAE"),xlog:true,xticks:rowsList,xlabel:"training rows (log scale)",ylabel:"error, MAE (ms)"})+legendHTML(names))}
+      ${card("Training time as data grows",`Log-log. Training time grew most for <b>${esc(growth[0].n)}</b> (×${fmt(growth[0].g,growth[0].g<10?1:0)}) and least for <b>${esc(growth[growth.length-1].n)}</b> (×${fmt(growth[growth.length-1].g,growth[growth.length-1].g<10?1:0)}).`,
+        plotXY({series:scSeries("train_s"),xlog:true,ylog:true,xticks:rowsList,xlabel:"training rows (log scale)",ylabel:"training time (s, log)"}))}
+      ${card("Prediction time as data grows",`Time to predict 1,000 processes after training on more data. Models that store the data (k-NN) slow down as it grows.`,
+        plotXY({series:scSeries("predict_ms_per_1000"),xlog:true,ylog:true,xticks:rowsList,xlabel:"training rows (log scale)",ylabel:"ms per 1,000 predictions (log)"}))}
+    </div>
+
+    <div class="sect">3 · How many trees?</div>
+    <div class="cols3">
+      ${card("Consistency",`Same process, different random seed: predictions agree more as trees are added. From <b>${fmt(o1.seed_disagreement_ms,2)} ms</b> (1 tree) to <b>${fmt(o20.seed_disagreement_ms,2)} ms</b> (20) to <b>${fmt(oN.seed_disagreement_ms,2)} ms</b> (${oN.trees}). It keeps improving.`,
+        plotXY({series:dsSeries("seed_disagreement_ms"),xlog:true,ylog:true,xticks:trees,xlabel:"number of trees (log scale)",ylabel:"seed-to-seed disagreement (ms, log)"})+dsLegend)}
+      ${card("Accuracy",`Average error levels off by about 20–50 trees: ${fmt(o20.MAE_mean,2)} ms at 20, ${fmt(oN.MAE_mean,2)} ms at ${oN.trees}. More trees buy consistency, not much accuracy.`,
+        plotXY({series:dsSeries("MAE_mean"),xlog:true,xticks:trees,xlabel:"number of trees (log scale)",ylabel:"mean test error (ms)"}))}
+      ${card("Cost",`Each tree adds time and memory: ${fmt(tc.find(r=>r.trees===20).latency_ms,1)} ms and ${fmt(tc.find(r=>r.trees===20).size_kb/1024,1)} MB at 20 trees, ${fmt(tc[tc.length-1].latency_ms,0)} ms and ${fmt(tc[tc.length-1].size_kb/1024,0)} MB at ${tc[tc.length-1].trees}.`,
+        plotXY({series:[{name:"latency (ms)",color:"#5fd6a0",points:tc.map(r=>[r.trees,r.latency_ms])},{name:"size (MB)",color:"#8fa3d6",dash:true,points:tc.map(r=>[r.trees,r.size_kb/1024])}],xlog:true,ylog:true,xticks:trees,xlabel:"number of trees (log scale)",ylabel:"ms  /  MB (log)"})
+        +`<div class="legend"><span><i style="background:#5fd6a0"></i>latency (ms)</span><span><i style="background:#8fa3d6"></i>size (MB)</span></div>`)}
+    </div>
+
+    <div class="sect">4 · What makes a forest reliable? A multi-variable regression</div>
+    <div class="cols3">
+      ${card("What drives instability",`I trained forests over a grid of ${cons.n_cells} settings (trees × training rows × target noise) and regressed how much predictions change between random seeds on all three at once. <b>${esc(top.name)}</b> is the strongest factor (coefficient ${fmt(top.coef,2)}). R² = ${fmt(cons.R2,3)}. Bars left of zero reduce instability; whiskers are 95% intervals.`,coefChart(cons.factors))}
+      ${card("What drives error",`Same three factors, regressed on average test error. R² = ${fmt(acc.R2,2)}. Notice trees matter little for error but a lot for consistency (left).`,coefChart(acc.factors))}
+      ${card("How well the regression fits",`Each dot is one forest setting. Points near the dashed line mean the three factors explain consistency well (R² = ${fmt(cons.R2,2)}).`,fitChart(cons.actual,cons.predicted))}
+    </div>
+
+    <div class="sect">5 · Weigh it yourself</div>
+    ${card("Multi-factor scorecard",`Nine measured factors, each scored 0–100 against the other models (100 = best tested). Move the sliders to weight what matters to you. No model wins every factor, and Random Forest is not first under any of the presets below. Its case rests on consistency as trees are added (section 3) and on handling non-linear data, not on speed, size or raw accuracy.`,`<div id="scorecard"></div>`)}
+    <p class="note">All data in this project is synthetic. Scores are relative to the seven models tested with fixed, untuned settings, and the weights are your choice, so read the ranking as an illustration of trade-offs, not a verdict.</p>`;
+  renderScorecard(G);
+}
+
 
 /* ============================== boot ============================== */
 resize();
