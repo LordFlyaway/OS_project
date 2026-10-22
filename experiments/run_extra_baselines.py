@@ -29,7 +29,7 @@ N_BATCHES, BATCH_SIZE, SEED0 = 200, 20, 1000
 def type_means() -> dict:
     """Mean realised burst per process type, measured on 300 separate batches (seeds 50000+)."""
     procs = [p for k in range(300) for p in generate_processes(BATCH_SIZE, seed=50000 + k)]
-    return {t: float(np.mean([p.actual_burst_time for p in procs if p.proc_type == t])) for t in ("IO-bound", "CPU-bound")}
+    return {t: float(np.mean([p.actual_burst_time for p in procs if p.proc_type == t])) for t in {p.proc_type for p in procs}}
 
 
 def main() -> None:

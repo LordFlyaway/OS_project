@@ -148,6 +148,7 @@ def simulate():
             "compute_ms": round((time.perf_counter() - started) * 1000, 1),
             "model_trained": model_trained,
             "model_noise": _model_meta().get("noise"),
+            "model_dataset": _model_meta().get("dataset"),
         },
         "params": {"n": n, "seed": seed, "quantum": quantum, "aging": aging},
         "processes": [{
@@ -196,6 +197,15 @@ def _read_csv(name: str):
 def _rows(df):
     df = df.astype(object)
     return df.where(df.notna(), None).to_dict(orient="records")
+
+
+@app.get("/api/nonlinear-dataset")
+def nonlinear_dataset():
+    """Model comparison on the non-linear, four-process-type dataset (Graphs tab)."""
+    df = _read_csv("e14_nonlinear_dataset_models.csv")
+    if df is None:
+        return jsonify({"available": False, "missing": ["e14_nonlinear_dataset_models.csv"]})
+    return jsonify({"available": True, "rows": _rows(df)})
 
 
 @app.get("/api/model-graphs")

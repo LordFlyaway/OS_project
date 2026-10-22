@@ -708,7 +708,7 @@ function renderLive(sv){
   if(!sv){ $("#live-note").textContent=""; return; }
   const at=new Date(sv.computed_at).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
   const m=sv.model_trained?new Date(sv.model_trained).toLocaleString([], {dateStyle:"medium", timeStyle:"short"}):"unknown";
-  $("#live-note").textContent=`Computed live by the server at ${at} in ${sv.compute_ms} ms · predictions from the Random Forest trained ${m}${sv.model_noise?` on ${sv.model_noise}-noise data`:""}`;
+  $("#live-note").textContent=`Computed live by the server at ${at} in ${sv.compute_ms} ms · predictions from the Random Forest trained ${m}${sv.model_noise?` on ${sv.model_noise}-noise ${sv.model_dataset||""} data`:""}`;
 }
 function syncControls(p){
   $("#n").value=p.n; $("#n-o").textContent=p.n;
@@ -971,15 +971,15 @@ function boxChart(map){
 }
 
 /* horizontal bars with a labelled start value */
-function hbarChart(items,{start=0,unit="",d=1}={}){
-  const W=460, rowH=30, H=items.length*rowH+34, m={l:128,r:56,t:8,b:26}, iw=W-m.l-m.r;
+function hbarChart(items,{start=0,unit="",d=1,showUnit=false,labelW=150}={}){
+  const W=460+(labelW-150), rowH=30, H=items.length*rowH+34, m={l:labelW,r:64,t:8,b:26}, iw=W-m.l-m.r;
   const hi=Math.max(...items.map(i=>i.v)); const lo=start;
   const X=v=>m.l+(v-lo)/((hi-lo)||1)*iw;
   let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bar chart">`;
   items.forEach((it,i)=>{ const y=m.t+i*rowH, w=Math.max(2,X(it.v)-m.l);
     s+=`<text x="${m.l-8}" y="${y+rowH/2+1}" text-anchor="end" style="fill:${it.hl?"var(--amber)":"var(--text)"};font-size:11px">${esc(it.label)}</text>`;
     s+=`<rect x="${m.l}" y="${y+4}" width="${w}" height="${rowH-10}" rx="4" fill="${it.color||mc(it.label)}"><title>${esc(it.label)}: ${fmt(it.v,d)}${unit}</title></rect>`;
-    s+=`<text x="${m.l+w+6}" y="${y+rowH/2+1}" style="fill:var(--text)">${fmt(it.v,d)}</text>`; });
+    s+=`<text x="${m.l+w+6}" y="${y+rowH/2+1}" style="fill:var(--text)">${fmt(it.v,d)}${showUnit?unit:""}</text>`; });
   if(start>0) s+=`<text x="${m.l}" y="${H-6}">axis starts at ${tk(start)}</text>`;
   return s+`</svg>`;
 }
@@ -1082,9 +1082,37 @@ function renderScorecard(G){
   draw();
 }
 
+function renderNonlinear(rows){
+  const RFN="Random Forest", n=rows.length, ord=i=>["1st","2nd","3rd"][i]||`${i+1}th`;
+  const byErr=[...rows].sort((a,b)=>a.burst_MAE-b.burst_MAE), byGap=[...rows].sort((a,b)=>b.gap_closed_pct-a.gap_closed_pct);
+  const rf=rows.find(r=>r.model===RFN), rErr=byErr.findIndex(r=>r.model===RFN), rGap=byGap.findIndex(r=>r.model===RFN);
+  const tag=(r,i,list)=>r.model===RFN?` · ${ord(i)}`:(i===0?" · best":(i===list.length-1?" · worst":""));
+  const colorOf=m=>m===RFN?"#ffb224":"#7f8fb5";
+  const left=byErr.map((r,i)=>({label:r.model+tag(r,i,byErr),v:r.burst_MAE,hl:r.model===RFN,color:colorOf(r.model)}));
+  const right=byGap.map((r,i)=>({label:r.model+tag(r,i,byGap),v:r.gap_closed_pct,hl:r.model===RFN,color:colorOf(r.model)}));
+  $("#gr-main").innerHTML=`
+    <section class="card hero">
+      <div class="eyebrow">Graphs</div>
+      <h1 class="h2">Model comparison on the non-linear dataset</h1>
+      <p class="sub"><b>Random Forest</b> ranks ${ord(rErr)} of ${n} on burst error (${fmt(rf.burst_MAE,2)} ms; best is ${esc(byErr[0].model)} at ${fmt(byErr[0].burst_MAE,2)} ms) and ${ord(rGap)} on the scheduler result (${fmt(rf.gap_closed_pct,1)}% of the gap closed).</p>
+    </section>
+    <div class="cols2">
+      ${card("Burst-time error (MAE)","Average prediction error in milliseconds, mean of 5 data seeds. <b>Lower is better.</b>",hbarChart(left,{unit:" ms",d:2,showUnit:true,labelW:215}))}
+      ${card("In the scheduler: share of the FCFS→SJF gap closed","Each model drives shortest-predicted-job-first on 100 random batches of 20 processes. <b>Higher is better.</b> The axis starts at 90%, so small differences look larger than they are.",hbarChart(right,{start:90,unit:"%",d:1,showUnit:true,labelW:215}))}
+    </div>
+    <p class="note">Dataset: the non-linear generator (dataset "nonlinear4") with four process types (CPU-bound, I/O-bound, memory-intensive, interactive), with thresholds and interactions in the burst formula, and no extra noise added (noise "low"). The project default adds heavy noise on top, where models are much closer together. All data is synthetic. Every model uses fixed, untuned settings, and the scheduler results are nearly tied because the scheduler only needs a good ordering, not exact bursts.</p>`;
+}
+
+
+const GRAPHS_MODE = "nonlinear";   // "nonlinear" = only the non-linear-dataset comparison; "all" = every graph
 async function loadGraphs(){
   const el=$("#gr-main");
   try{
+    if(GRAPHS_MODE==="nonlinear"){
+      const D=await (await fetch("/api/nonlinear-dataset")).json();
+      if(!D.available){ el.innerHTML=`<div class="card pad empty">Missing result file (${esc((D.missing||[]).join(", "))}).</div>`; return; }
+      grLoaded=true; renderNonlinear(D.rows); return;
+    }
     const G=await (await fetch("/api/model-graphs")).json();
     if(!G.available){ el.innerHTML=`<div class="card pad empty">Some experiment results are missing (${esc((G.missing||[]).join(", "))}). Run the experiment scripts in <span class="mono">experiments/</span> once, then reload this page.</div>`; return; }
     grLoaded=true; renderGraphs(G);

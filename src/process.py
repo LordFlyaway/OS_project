@@ -22,7 +22,8 @@ FEATURE_COLUMNS = [
     "proc_type",
 ]
 
-PROC_TYPES = ("CPU-bound", "IO-bound")
+# Every process type the generators can produce ("classic" uses the first two only).
+PROC_TYPES = ("CPU-bound", "IO-bound", "Memory-intensive", "Interactive")
 
 # Human-readable names for the three predicted priority classes (1 = most urgent).
 PRIORITY_NAMES = {1: "High (interactive)", 2: "Medium", 3: "Low (batch)"}
@@ -38,7 +39,7 @@ class Process:
     memory_mb: float = 0.0          # requested memory
     io_operations: int = 0          # number of I/O bursts requested
     past_cpu_usage: float = 0.0     # mean CPU time this program used historically
-    proc_type: str = "CPU-bound"    # CPU-bound | IO-bound
+    proc_type: str = "CPU-bound"    # CPU-bound | IO-bound | Memory-intensive | Interactive
 
     # ---- ground truth: hidden from the scheduler, used only for evaluation ---
     actual_burst_time: int = 1

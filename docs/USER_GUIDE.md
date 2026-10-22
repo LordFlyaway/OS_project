@@ -1,9 +1,10 @@
 # AI Task Scheduler – User Guide
 
-> **Note on the numbers in this guide.** The figures quoted below were measured on the original, nearly
-> noise-free data (`SCHEDULER_NOISE=low`). The project now defaults to noisy data (`high`), where results are
-> weaker, for example the AI scheduler closes about 59% of the FCFS-to-SJF gap instead of about 96%. See the
-> README for current numbers, and set `SCHEDULER_NOISE=low` to reproduce the figures in this guide.
+> **Note on the numbers in this guide.** The figures quoted below were measured on the project's original data
+> (`SCHEDULER_DATASET=classic SCHEDULER_NOISE=low`: two process types, almost no noise). The defaults are now
+> `nonlinear4` data with `high` noise, where results are weaker, for example the AI scheduler closes about 60% of
+> the FCFS-to-SJF gap instead of about 96%. See the README for current numbers, and set both variables above to
+> reproduce the figures in this guide.
 
 
 This guide covers (1) how to install and use the project, and (2) how the

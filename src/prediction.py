@@ -26,7 +26,7 @@ from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, r2_sc
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-from .data_generation import DEFAULT_NOISE, generate_dataset
+from .data_generation import DEFAULT_DATASET, DEFAULT_NOISE, generate_dataset
 from .feature_engineering import build_preprocessor, processes_to_frame
 from .process import FEATURE_COLUMNS, Process
 
@@ -80,9 +80,9 @@ MODEL_META_PATH = os.path.join(MODEL_DIR, "meta.json")
 
 
 def train_models(n_rows: int = 4000, seed: int = 42, save: bool = True,
-                 noise=None) -> tuple[Pipeline, Pipeline, TrainingReport]:
+                 noise=None, dataset=None) -> tuple[Pipeline, Pipeline, TrainingReport]:
     """Generate data, fit both pipelines, evaluate on a held-out split."""
-    df = generate_dataset(n_rows=n_rows, seed=seed, noise=noise)
+    df = generate_dataset(n_rows=n_rows, seed=seed, noise=noise, dataset=dataset)
     X = df[FEATURE_COLUMNS]
     y_burst = df["actual_burst_time"]
     y_prio = df["actual_priority"]
@@ -111,7 +111,9 @@ def train_models(n_rows: int = 4000, seed: int = 42, save: bool = True,
         joblib.dump(regressor, BURST_MODEL_PATH)
         joblib.dump(classifier, PRIORITY_MODEL_PATH)
         with open(MODEL_META_PATH, "w", encoding="utf-8") as f:      # what these models were trained on
-            json.dump({"noise": noise if isinstance(noise, str) else DEFAULT_NOISE, "rows": n_rows, "trees": RF_TREES}, f)
+            json.dump({"noise": noise if isinstance(noise, str) else DEFAULT_NOISE,
+                       "dataset": dataset if isinstance(dataset, str) else DEFAULT_DATASET,
+                       "rows": n_rows, "trees": RF_TREES}, f)
 
     return regressor, classifier, report
 
@@ -157,9 +159,9 @@ class Predictor:
         return processes
 
 
-def compare_models(n_rows: int = 4000, seed: int = 42, noise=None) -> pd.DataFrame:
+def compare_models(n_rows: int = 4000, seed: int = 42, noise=None, dataset=None) -> pd.DataFrame:
     """Report objective 2: evaluate the candidate scikit-learn models."""
-    df = generate_dataset(n_rows=n_rows, seed=seed, noise=noise)
+    df = generate_dataset(n_rows=n_rows, seed=seed, noise=noise, dataset=dataset)
     X, yb, yp = df[FEATURE_COLUMNS], df["actual_burst_time"], df["actual_priority"]
     X_tr, X_te, yb_tr, yb_te, yp_tr, yp_te = train_test_split(
         X, yb, yp, test_size=0.25, random_state=seed)
